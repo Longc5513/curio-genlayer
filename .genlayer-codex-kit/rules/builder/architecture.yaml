@@ -1,0 +1,28 @@
+version: 3.0.0
+group: builder
+rules:
+  - id: GL-BLD-001
+    title: Consensus-critical decision not identified
+    severity: high
+    default_result: BLOCK
+    evidence_required: true
+  - id: GL-BLD-002
+    title: GenLayer use is decorative
+    severity: high
+    default_result: BLOCK
+    evidence_required: true
+  - id: GL-BLD-003
+    title: Deterministic and non-deterministic boundaries mixed
+    severity: high
+    default_result: BLOCK
+    evidence_required: true
+  - id: GL-BLD-004
+    title: State changes before accepted validation
+    severity: high
+    default_result: BLOCK
+    evidence_required: true
+  - id: GL-BLD-005
+    title: Critical dependencies unpinned
+    severity: medium
+    default_result: WARN
+    evidence_required: true

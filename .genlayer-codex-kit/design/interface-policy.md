@@ -1,0 +1,2 @@
+# Interface policy
+Hierarchy: status, evidence/confidence, contract/consensus, transaction/Studio/Explorer/state, findings/remediation, missing/manual checks, scores, audit export. Required states: idle, loading, scanning, blocked, partial, success, rejected, request-more-info, integration-unavailable, empty, error. Avoid generic chatbot layouts, card carpets, fake terminals, invented metrics, glowing coins, decorative chains, excessive glass. Test 320/375/414/768/desktop, keyboard, focus, contrast, reduced motion, and all states.

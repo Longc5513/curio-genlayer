@@ -1,0 +1,13 @@
+node_modules/
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+.env
+.env.local
+app/.env
+app/.env.local
+app/dist/
+coverage/
+deployment.local.json
+.DS_Store

@@ -45,6 +45,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm --prefix app install --no-audit --no-fund
+      - run: npm --prefix app ci --no-audit --no-fund
       - run: npm --prefix app run lint
       - run: npm --prefix app run build

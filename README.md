@@ -33,12 +33,12 @@ docs/        demo and reviewer evidence guidance
 
 ## Rejection issues addressed
 
-- No simulated or `localStorage` wallet: writes use a MetaMask-compatible provider through `genlayer-js`.
+- No simulated or `localStorage` wallet: writes use an injected EIP-1193 wallet through `genlayer-js`.
 - No leader-only validation: validators independently run the evaluation again.
 - No unrestricted resolution method: only the requester or current contributor can request adjudication.
 - No raw, unlimited evidence injection: only public HTTPS URLs are accepted; rendered evidence is bounded, normalized, delimited, and marked untrusted.
 - No silent 50/50 fallback: malformed AI output fails; inaccessible evidence produces an explicit `more_info` result.
-- No fake escrow success: `create_bounty` is payable, requires positive `gl.message.value`, and the frontend passes the GEN value in `writeContract`.
+- No fake escrow success: `create_bounty` is payable, requires positive `gl.message.value`, the frontend passes the GEN value in `writeContract`, and the UI exposes finalized execution plus emitted settlement-message evidence.
 - No deterministic-only submission: payout/refund depends on `run_nondet_unsafe` validator consensus.
 - No static contract card: frontend reads and writes the configured deployed contract.
 
@@ -78,29 +78,33 @@ Start the frontend:
 npm --prefix app run dev
 ```
 
-Without a real `VITE_GENLAYER_CONTRACT_ADDRESS`, the UI displays an explicit integration-unavailable state and no fake bounties.
+The package defaults to the user-provided Studio deployment `0x679737cCE4804439f2CF6d6082224A58658D0011`. Override it through environment variables after redeploying the included source.
 
-## Deploy the Intelligent Contract
+## Studio deployment included
 
-The contract has no constructor arguments, so deployment uses the official direct CLI flow:
+The frontend is preconfigured for the user-provided Studio deployment:
+
+```text
+Network: studionet
+Address: 0x679737cCE4804439f2CF6d6082224A58658D0011
+Import:  https://studio.genlayer.com/?import-contract=0x679737cCE4804439f2CF6d6082224A58658D0011
+```
+
+The deployment address is public configuration, not a secret. `deployment.json` records its status. The repository contract is restored from the same deployment bundle that preceded this supplied address. Before final submission, still open the import link and independently verify the source and transaction history.
+
+To redeploy the same packaged contract source yourself:
 
 ```bash
 npm install -g genlayer
-genlayer network testnet-bradbury
+genlayer network studionet
 npm run deploy
 ```
 
-Verify the address and deployment transaction in Explorer, then record them:
+For Bradbury, switch the CLI and frontend network together, record the real address, and never commit a private key or seed phrase.
 
-```bash
-python scripts/record_deployment.py \
-  --network testnetBradbury \
-  --address 0xREAL_DEPLOYED_ADDRESS \
-  --transaction 0xREAL_DEPLOYMENT_TRANSACTION \
-  --explorer-url https://VERIFIED_EXPLORER_BASE
-```
+## Wallet behavior
 
-Never commit a private key or seed phrase.
+The frontend does not call `wallet_getSnaps` and does not depend on a Snap handler. It requests an account with `eth_requestAccounts`, switches/adds the configured GenLayer chain through standard EIP-1193 methods, delegates signing to the injected wallet through GenLayerJS, waits for `FINALIZED`, and checks the GenLayer execution result before refreshing state.
 
 ## Push and publish on GitHub
 
@@ -120,8 +124,8 @@ Follow [GITHUB_SETUP.md](GITHUB_SETUP.md). The repository includes:
 | Adjudication access control | Complete |
 | Wallet + read/write frontend | Complete |
 | GitHub CI and Pages workflows | Complete |
-| Testnet contract address | Requires the owner's funded GenLayer account |
-| Live frontend with real contract | Runs after repository variables are configured |
+| Studio contract address | Preconfigured: `0x679737cCE4804439f2CF6d6082224A58658D0011` |
+| Live frontend with real contract | GitHub Pages workflow has working Studio defaults; repository variables may override them |
 | Demo video | Record after deployment |
 | DoraHacks submission | Submit after links are verified |
 

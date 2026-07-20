@@ -3,7 +3,18 @@ import { StatePanel } from './components/StatePanel'
 import { StatusBadge } from './components/StatusBadge'
 import { TxPanel } from './components/TxPanel'
 import { cleanError, formatGen, parseGen, shortAddress } from './lib/format'
-import { connectWallet, contractAddress, listBounties, networkName, sendContractCall } from './lib/genlayer'
+import {
+  connectWallet,
+  contractAddress,
+  getConnectedWallet,
+  getContractHealth,
+  listBounties,
+  networkName,
+  sendContractCall,
+  studioImportUrl,
+  subscribeWallet,
+  type ContractHealth,
+} from './lib/genlayer'
 import type { LearningBounty, TxState } from './lib/types'
 
 const idleTx: TxState = { phase: 'idle', label: '' }
@@ -19,17 +30,26 @@ export default function App() {
   const [loadError, setLoadError] = useState('')
   const [selected, setSelected] = useState<LearningBounty | null>(null)
   const [tx, setTx] = useState<TxState>(idleTx)
+  const [health, setHealth] = useState<ContractHealth>({
+    configured: /^0x[a-fA-F0-9]{40}$/.test(contractAddress),
+    reachable: false,
+    version: '',
+    stats: null,
+    error: '',
+  })
 
-  const configured = /^0x[a-fA-F0-9]{40}$/.test(contractAddress)
+  const configured = health.configured
 
   const refresh = useCallback(async () => {
-    if (!configured) {
-      setLoading(false)
-      setBounties([])
-      return
-    }
     setLoading(true)
     setLoadError('')
+    const nextHealth = await getContractHealth()
+    setHealth(nextHealth)
+    if (!nextHealth.configured || !nextHealth.reachable) {
+      setBounties([])
+      setLoading(false)
+      return
+    }
     try {
       const rows = await listBounties()
       setBounties([...rows].reverse())
@@ -39,9 +59,19 @@ export default function App() {
     } finally {
       setLoading(false)
     }
-  }, [configured])
+  }, [])
 
   useEffect(() => { void refresh() }, [refresh])
+  useEffect(() => {
+    void getConnectedWallet().then(setAccount).catch(() => setAccount(null))
+    return subscribeWallet(
+      setAccount,
+      () => {
+        setTx({ phase: 'idle', label: '' })
+        void refresh()
+      },
+    )
+  }, [refresh])
 
   async function handleConnect() {
     setTx({ phase: 'wallet', label: 'Waiting for wallet approval…' })
@@ -63,10 +93,18 @@ export default function App() {
         setAccount(activeAccount)
       }
       setTx({ phase: 'submitting', label: `${label}: confirm in your wallet…` })
-      const hash = await sendContractCall(activeAccount, fn, args, value, (nextHash) => {
+      const evidence = await sendContractCall(activeAccount, fn, args, value, (nextHash) => {
         setTx({ phase: 'consensus', label: `${label}: validators are reaching consensus…`, hash: nextHash })
       })
-      setTx({ phase: 'success', label: `${label}: finalized successfully`, hash })
+      setTx({
+        phase: 'success',
+        label: `${label}: finalized successfully`,
+        hash: evidence.hash,
+        submittedValueWei: evidence.submittedValueWei,
+        emittedValueWei: evidence.emittedValueWei,
+        emittedMessageCount: evidence.emittedMessageCount,
+        executionResult: evidence.executionResult,
+      })
       await refresh()
     } catch (error) {
       setTx({ phase: 'error', label: `${label} failed`, error: cleanError(error) })
@@ -96,15 +134,33 @@ export default function App() {
         </nav>
         <button className="wallet-button" onClick={handleConnect}>
           <span className={account ? 'wallet-light wallet-light--on' : 'wallet-light'} />
-          {shortAddress(account || undefined)}
+          {account ? shortAddress(account) : 'Connect wallet'}
         </button>
       </header>
 
       <main>
         <TxPanel state={tx} />
         {!configured && (
-          <StatePanel tone="warning" title="Intelligent Contract not configured">
-            This UI intentionally does not simulate on-chain data. Deploy the Python contract, then set VITE_GENLAYER_CONTRACT_ADDRESS in app/.env.
+          <StatePanel tone="danger" title="Invalid Intelligent Contract configuration">
+            Set a valid VITE_GENLAYER_CONTRACT_ADDRESS before using the app.
+          </StatePanel>
+        )}
+        {configured && !health.reachable && !loading && (
+          <StatePanel
+            tone="danger"
+            title="The configured Intelligent Contract is not reachable"
+            action={<button className="secondary" onClick={() => void refresh()}>Retry</button>}
+          >
+            Confirm that the contract address belongs to {networkName}. {health.error}
+          </StatePanel>
+        )}
+        {configured && health.reachable && (
+          <StatePanel
+            tone="success"
+            title={`Live Intelligent Contract · ${health.version || 'version available on-chain'}`}
+            action={<a className="panel-link" href={studioImportUrl} target="_blank" rel="noreferrer">Open in Studio ↗</a>}
+          >
+            Reads and writes use {networkName} at {shortAddress(contractAddress)}. No localStorage wallet or simulated bounty data is used.
           </StatePanel>
         )}
         {view === 'market' && (
@@ -113,6 +169,7 @@ export default function App() {
             loading={loading}
             error={loadError}
             stats={stats}
+            contractStats={health.stats}
             selected={selected}
             account={account}
             onSelect={setSelected}
@@ -121,25 +178,26 @@ export default function App() {
             onTransact={transact}
           />
         )}
-        {view === 'create' && <CreateView configured={configured} onTransact={transact} onDone={() => setView('market')} />}
+        {view === 'create' && <CreateView configured={configured && health.reachable} onTransact={transact} onDone={() => setView('market')} />}
         {view === 'review' && <MyWorkView account={account} bounties={bounties} onSelect={(item) => { setSelected(item); setView('market') }} />}
         {view === 'about' && <AboutView />}
       </main>
 
       <footer>
         <span>Curio · {networkName}</span>
-        <span>Contract: {configured ? shortAddress(contractAddress) : 'not deployed'}</span>
+        <a href={studioImportUrl} target="_blank" rel="noreferrer">Contract: {shortAddress(contractAddress)} ↗</a>
         <a href="https://docs.genlayer.com" target="_blank" rel="noreferrer">GenLayer docs ↗</a>
       </footer>
     </div>
   )
 }
 
-function MarketView({ bounties, loading, error, stats, selected, account, onSelect, onRefresh, onCreate, onTransact }: {
+function MarketView({ bounties, loading, error, stats, contractStats, selected, account, onSelect, onRefresh, onCreate, onTransact }: {
   bounties: LearningBounty[]
   loading: boolean
   error: string
   stats: { total: number; active: number; settled: number }
+  contractStats: ContractHealth['stats']
   selected: LearningBounty | null
   account: `0x${string}` | null
   onSelect: (item: LearningBounty | null) => void
@@ -173,7 +231,10 @@ function MarketView({ bounties, loading, error, stats, selected, account, onSele
         <Metric value={String(stats.total)} label="Bounties loaded" />
         <Metric value={String(stats.active)} label="Active reviews" />
         <Metric value={String(stats.settled)} label="Settled outcomes" />
-        <Metric value="3-way" label="Accept · refund · more info" />
+        <Metric
+          value={contractStats ? formatGen(contractStats.total_escrowed_wei) : '—'}
+          label={contractStats?.escrow_is_funded === false ? 'Escrow accounting mismatch' : 'GEN currently escrowed'}
+        />
       </section>
 
       <section className="content-grid">
@@ -263,13 +324,14 @@ function BountyDetail({ bounty, account, onClose, onTransact }: {
           <button className="primary" type="submit">Record submission on-chain</button>
         </form>
       )}
-      {bounty.status === 'submitted' && (
+      {bounty.status === 'submitted' && (isRequester || isContributor) && (
         <button className="primary full" onClick={() => { void onTransact('Run AI adjudication', 'adjudicate', [bounty.bounty_id]).catch(() => undefined) }}>Run validator consensus</button>
       )}
-      {(bounty.status === 'open' || bounty.status === 'more_info') && isRequester && (
+      {bounty.status === 'open' && isRequester && (
         <button className="danger full" onClick={() => { void onTransact('Cancel bounty', 'cancel_open_bounty', [bounty.bounty_id]).catch(() => undefined) }}>Cancel and refund escrow</button>
       )}
       {!account && <p className="hint">Connect a wallet to see actions available to this account.</p>}
+      {account && bounty.status === 'submitted' && !isRequester && !isContributor && <p className="hint">Only the requester or current contributor can start adjudication.</p>}
       {bounty.contributor !== zeroAddress && <p className="hint">Contributor: {shortAddress(bounty.contributor)}</p>}
     </aside>
   )

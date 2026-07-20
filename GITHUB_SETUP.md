@@ -1,73 +1,76 @@
-# Push Curio to GitHub
+# Publish Curio to GitHub
 
-The repository is prepared for a normal public GitHub project: CI, Dependabot, a Pages workflow, issue/PR templates, secret checks, and push helper scripts are included.
+This package is ready to replace the contents of:
 
-## 1. Create an empty GitHub repository
-
-Create the repository without adding a README, license, or `.gitignore`, because those files already exist here.
-
-## 2. Push from Windows PowerShell
-
-From the extracted `curio-main` folder:
-
-```powershell
-Set-ExecutionPolicy -Scope Process Bypass
-.\scripts\push-github.ps1 -RepoUrl "https://github.com/YOUR_NAME/curio-genlayer.git"
+```text
+https://github.com/Longc5513/curio-genlayer
 ```
 
-Or run the commands manually:
+It includes the source contract, real GenLayerJS wallet flow, source tests, locked frontend dependencies, CI, and GitHub Pages deployment.
+
+## 1. Replace the repository contents
+
+Extract the ZIP. Open PowerShell inside the `curio-genlayer` folder and run:
 
 ```powershell
 git init
-git add .
-git commit -m "feat: launch Curio learning bounties on GenLayer"
 git branch -M main
-git remote add origin https://github.com/YOUR_NAME/curio-genlayer.git
-git push -u origin main
+git remote remove origin 2>$null
+git remote add origin https://github.com/Longc5513/curio-genlayer.git
+git add .
+git commit -m "fix: complete Studio wallet and on-chain escrow flow"
+git fetch origin main
+git push -u origin main --force-with-lease
 ```
 
-## 3. Verify GitHub Actions
+Use `--force-with-lease` only because this package is intended to replace the earlier generated version. It refuses to overwrite unexpected remote changes.
 
-Open the repository's **Actions** tab. The `Curio checks` workflow must pass. It checks source invariants, lints the Intelligent Contract, runs GenLayer direct-mode tests, and builds the frontend.
+## 2. Current Studio configuration
 
-## 4. Deploy the contract before enabling the public app
+The production frontend already defaults to:
 
-```bash
-npm install -g genlayer
-genlayer network testnet-bradbury
-genlayer deploy --contract contracts/curio_learning_bounties.py
+```text
+Network: studionet
+Contract: 0x679737cCE4804439f2CF6d6082224A58658D0011
+Studio: https://studio.genlayer.com/?import-contract=0x679737cCE4804439f2CF6d6082224A58658D0011
 ```
 
-Keep the real contract address and deployment transaction printed by the CLI. Never commit a private key or seed phrase.
-
-Record verified evidence:
-
-```bash
-python scripts/record_deployment.py \
-  --network testnetBradbury \
-  --address 0xYOUR_CONTRACT_ADDRESS \
-  --transaction 0xYOUR_DEPLOYMENT_TRANSACTION \
-  --explorer-url https://YOUR_VERIFIED_EXPLORER_BASE
-```
-
-This creates `deployment.json`, writes the local ignored `app/.env`, and prints the three GitHub repository variables needed by the Pages workflow.
-
-## 5. Configure GitHub Pages
-
-In **Settings → Secrets and variables → Actions → Variables**, add:
+Repository variables are optional. Add them only to override the defaults after a new deployment:
 
 - `GENLAYER_CONTRACT_ADDRESS`
-- `GENLAYER_NETWORK` with value `testnetBradbury`
+- `GENLAYER_NETWORK`
 - `GENLAYER_EXPLORER_URL`
 
-Then open **Settings → Pages** and choose **GitHub Actions** as the source. Run `Deploy frontend to GitHub Pages` from the Actions tab, or push a change under `app/`.
+## 3. Enable GitHub Pages
 
-The frontend intentionally shows no fake data when a real deployed contract is not configured.
+Open **Settings → Pages** and select **GitHub Actions** as the source. Then open **Actions → Deploy frontend to GitHub Pages → Run workflow**.
 
-## 6. Final evidence check
+The workflow uses `npm ci`, builds the locked frontend, injects the GitHub Pages base path, and publishes `app/dist`.
+
+## 4. Verify before submission
+
+Run locally:
 
 ```bash
-python scripts/verify_submission.py
+python -m pytest tests/test_contract_source.py tests/test_frontend_source.py -q
+python scripts/check_project.py
+npm --prefix app ci
+npm --prefix app run lint
+npm --prefix app run build
 ```
 
-Then follow `docs/DEMO_SCRIPT.md` and complete `DORAHACKS_SUBMISSION.md` with only verified links.
+Then test the real flow in the published app:
+
+1. Connect a MetaMask-compatible EIP-1193 wallet.
+2. Allow the app to add/switch to GenLayer Studio Network.
+3. Create a bounty with a positive GEN value.
+4. Confirm the finalized execution and submitted GEN value shown by the UI.
+5. Submit from a second account.
+6. Run adjudication as requester or current contributor.
+7. Confirm payout/refund external-message evidence.
+
+The repository does not use `wallet_getSnaps`, a localStorage wallet, simulated bounties, or a silent settlement fallback.
+
+## 5. Source/deployment match
+
+The address above was supplied from Studio. Before final review, open the Studio import link and verify that its deployed source matches `contracts/curio_learning_bounties.py`. The packaged contract is the v1.1.0 source from the deployment bundle used before this Studio address was supplied. Verify the imported source hash before final review; redeploy and replace the address only when Studio shows a mismatch.

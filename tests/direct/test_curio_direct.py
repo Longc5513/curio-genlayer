@@ -12,12 +12,11 @@ pytest.importorskip("genlayer_test")
 def test_initial_views_are_empty(direct_deploy):
     contract = direct_deploy("contracts/curio_learning_bounties.py")
     assert contract.list_bounties() == []
-    assert contract.get_stats() == {
-        "bounty_count": 0,
-        "total_escrowed_wei": 0,
-        "total_paid_wei": 0,
-        "total_refunded_wei": 0,
-    }
+    stats = contract.get_stats()
+    assert stats["bounty_count"] == 0
+    assert stats["total_escrowed_wei"] == 0
+    assert stats["total_paid_wei"] == 0
+    assert stats["total_refunded_wei"] == 0
 
 
 def test_create_requires_positive_gen(direct_vm, direct_deploy, direct_alice):

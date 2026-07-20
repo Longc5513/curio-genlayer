@@ -1,22 +1,24 @@
 # Validation report
 
-Validated on **2026-07-20** from the packaged source tree.
+Validated on **2026-07-20** from the rebuilt source tree.
 
-## Completed locally
+## Passed locally
 
-- Python syntax parsing for the Intelligent Contract and deployment helper scripts.
-- 13 source/invariant tests covering GenLayer consensus primitives, substantive validator comparison, settlement ordering, adjudication access control, prompt-injection boundaries, stable evidence-failure handling, real wallet integration, GEN value passing, on-chain reads/writes, GitHub Pages base configuration, and honest UI states.
-- Repository checker for required files, obvious embedded secrets, and legacy Shelby/Aptos/Solana frontend dependencies.
-- GitHub-ready repository files: CI, Pages workflow, Dependabot, issue/PR templates, PowerShell/Bash push helpers, deployment recorder, submission verifier, demo script, and submission draft.
-- ZIP integrity test after packaging.
+- `17` source/invariant tests passed.
+- TypeScript strict lint passed.
+- Vite production build passed (`466` modules transformed).
+- Python contract syntax parsing passed.
+- Repository checker passed: required files, production configuration, lockfile, obvious-secret scan, and legacy-chain dependency scan.
+- Frontend is preconfigured for Studio contract `0x679737cCE4804439f2CF6d6082224A58658D0011`.
+- Frontend has no `wallet_getSnaps` call, no localStorage wallet, and no simulated bounty rows.
+- Transactions wait for `FINALIZED`, require `FINISHED_WITH_RETURN`, and expose submitted/emitted GEN evidence.
 
-## Requires the owner's network account or hosted environment
+## External verification still required
 
-- Download npm/Python dependencies and run the hosted CI matrix.
-- Run `genvm-lint` and `genlayer-test` direct/Studio suites with official tooling.
-- Deploy the Intelligent Contract using a funded GenLayer account.
-- Verify the deployed address, positive escrow value, consensus activity, and settlement messages in Explorer.
-- Configure GitHub repository variables and deploy the frontend through Pages.
-- Record a demo video and publish the DoraHacks submission.
+- Confirm in Studio that the deployed source at the supplied address has SHA-256 `2402c3f374fa1bb2899f53657f821f3d296c79a45359e334c9fbef8cac53b2a8` and matches `contracts/curio_learning_bounties.py`.
+- Execute a positive-value create transaction with a funded Studio wallet.
+- Execute submit and adjudicate from permitted accounts.
+- Verify payout/refund external messages and final balances.
+- Publish GitHub Pages, run the public CI workflow, record the demo, and complete the submission links.
 
-These external steps cannot be truthfully fabricated in source. `scripts/record_deployment.py` and `scripts/verify_submission.py` are included to make the verified handoff reproducible.
+Those network/account-dependent facts are intentionally not fabricated by the package.

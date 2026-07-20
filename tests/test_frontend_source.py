@@ -53,3 +53,34 @@ def test_deployed_contract_and_pages_base_are_configured():
     assert "VITE_BASE_PATH" in vite
     production = (ROOT / "app/.env.production").read_text(encoding="utf-8")
     assert "VITE_GENLAYER_NETWORK=studionet" in production
+
+
+def test_wallet_connection_survives_network_switch_failure_and_uses_one_provider():
+    # Multi-wallet browsers announce providers through EIP-6963; the chosen
+    # provider is cached and reused for account access, network setup and signing.
+    assert "eip6963:requestProvider" in GENLAYER
+    assert "eip6963:announceProvider" in GENLAYER
+    assert "activeProvider" in GENLAYER
+    assert "resolveWalletProvider" in GENLAYER
+
+    connect_start = GENLAYER.index("export async function connectWallet")
+    connect_end = GENLAYER.index("export async function getConnectedWallet")
+    connect_body = GENLAYER[connect_start:connect_end]
+    assert "eth_requestAccounts" in connect_body
+    assert "ensureWalletNetwork" not in connect_body
+
+    handle_start = APP.index("async function handleConnect")
+    handle_end = APP.index("async function transact")
+    handle_body = APP[handle_start:handle_end]
+    assert handle_body.index("setAccount(connected)") < handle_body.index("await ensureWalletNetwork()")
+    assert "Wallet connected · GenLayer network setup failed" in handle_body
+
+
+def test_wallet_errors_are_human_readable_not_object_object():
+    formatter = (ROOT / "app/src/lib/format.ts").read_text(encoding="utf-8")
+    assert "JSON.stringify" in formatter
+    assert "shortMessage" in formatter
+    assert "A wallet request is already pending" in formatter
+    assert "return String(error || 'Unknown wallet error')" not in formatter
+    assert "readableObjectError" in formatter
+    assert "Connect wallet to continue" in APP

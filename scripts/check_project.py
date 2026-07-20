@@ -24,6 +24,7 @@ required = [
     "GITHUB_SETUP.md",
     "DORAHACKS_SUBMISSION.md",
     "docs/DEMO_SCRIPT.md",
+    "docs/WALLET_TROUBLESHOOTING.md",
     "scripts/push-github.ps1",
     "scripts/push-github.sh",
     "scripts/record_deployment.py",

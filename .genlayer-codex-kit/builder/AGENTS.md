@@ -1,0 +1,2 @@
+# Builder
+Explain why the use case needs decentralized adjudication. Identify the consensus-critical decision. Separate deterministic and non-deterministic work. Select the Equivalence Principle according to variability and comparability. Define leader and independent validator responsibilities, bounded failures, ambiguity, disagreement, timeout, state mutation timing, and tests. Never validate only shape, keywords, enum membership, length, or unsupported leader claims.

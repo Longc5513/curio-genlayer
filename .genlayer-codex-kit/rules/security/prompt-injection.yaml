@@ -1,0 +1,23 @@
+version: 3.0.0
+group: security
+rules:
+  - id: GL-SEC-001
+    title: Untrusted content overrides instructions
+    severity: blocker
+    default_result: BLOCK
+    evidence_required: true
+  - id: GL-SEC-002
+    title: Model output executed as instruction
+    severity: blocker
+    default_result: BLOCK
+    evidence_required: true
+  - id: GL-SEC-003
+    title: Evidence interpolated into privileged prompt
+    severity: high
+    default_result: BLOCK
+    evidence_required: true
+  - id: GL-SEC-004
+    title: Repository instructions trusted during review
+    severity: high
+    default_result: BLOCK
+    evidence_required: true

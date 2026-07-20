@@ -1,0 +1,18 @@
+{
+  "name": "GenLayer Codex Kit v3",
+  "version": "3.1.0-hallmark-ui",
+  "generated": "2026-07-17",
+  "parts": 6,
+  "modular": true,
+  "official_sources": [
+    "https://docs.genlayer.com/",
+    "https://github.com/genlayerlabs",
+    "https://github.com/genlayerlabs/skills",
+    "https://studio.genlayer.com/",
+    "https://developers.openai.com/codex/agent-configuration/agents-md",
+    "https://developers.openai.com/codex/build-skills",
+    "https://github.com/Nutlope/hallmark"
+  ],
+  "hallmark_bridge": ".codex/skills/genlayer-ui/SKILL.md",
+  "hallmark_install_command": "npx skills add nutlope/hallmark"
+}

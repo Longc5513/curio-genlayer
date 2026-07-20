@@ -1,0 +1,78 @@
+version: 3.0.0
+group: reviewer
+rules:
+  - id: GL-CON-001
+    title: No meaningful non-deterministic execution
+    severity: blocker
+    default_result: REJECT
+    evidence_required: true
+  - id: GL-CON-002
+    title: Validator re-executes without verification
+    severity: high
+    default_result: REJECT
+    evidence_required: true
+  - id: GL-CON-003
+    title: Validator checks shape only
+    severity: high
+    default_result: REJECT
+    evidence_required: true
+  - id: GL-CON-004
+    title: Silent random or permissive fallback
+    severity: blocker
+    default_result: REJECT
+    evidence_required: true
+  - id: GL-CON-005
+    title: Missing access control
+    severity: high
+    default_result: FINDING
+    evidence_required: true
+  - id: GL-CON-006
+    title: Unsafe evidence URL
+    severity: high
+    default_result: FINDING
+    evidence_required: true
+  - id: GL-CON-007
+    title: Unbounded web or LLM operation
+    severity: medium
+    default_result: FINDING
+    evidence_required: true
+  - id: GL-CON-008
+    title: Strict equality on variable output
+    severity: medium
+    default_result: FINDING
+    evidence_required: true
+  - id: GL-CON-009
+    title: State changes before validation
+    severity: high
+    default_result: FINDING
+    evidence_required: true
+  - id: GL-CON-010
+    title: Malformed output unhandled
+    severity: medium
+    default_result: FINDING
+    evidence_required: true
+  - id: GL-CON-011
+    title: Unavailable source unhandled
+    severity: medium
+    default_result: FINDING
+    evidence_required: true
+  - id: GL-CON-012
+    title: No ambiguity strategy
+    severity: medium
+    default_result: FINDING
+    evidence_required: true
+  - id: GL-CON-013
+    title: Centralized trust undermines adjudication
+    severity: high
+    default_result: FINDING
+    evidence_required: true
+  - id: GL-CON-014
+    title: Replay or duplicate risk
+    severity: high
+    default_result: FINDING
+    evidence_required: true
+  - id: GL-CON-015
+    title: Unsafe claim/withdraw path
+    severity: high
+    default_result: FINDING
+    evidence_required: true

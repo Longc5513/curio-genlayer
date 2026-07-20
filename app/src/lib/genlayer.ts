@@ -45,7 +45,7 @@ export async function listBounties(): Promise<LearningBounty[]> {
     functionName: 'list_bounties',
     args: [],
   })
-  return Array.isArray(result) ? (result as LearningBounty[]) : []
+  return Array.isArray(result) ? (result as unknown as LearningBounty[]) : []
 }
 
 export async function sendContractCall(
@@ -60,9 +60,9 @@ export async function sendContractCall(
   const hash = (await client.writeContract({
     address: requireContract(),
     functionName,
-    args,
+    args: (args as unknown) as any[],
     value,
-  })) as TransactionHash
+  })) as unknown as TransactionHash
   onHash?.(hash)
   const receipt = await readClient.waitForTransactionReceipt({
     hash,

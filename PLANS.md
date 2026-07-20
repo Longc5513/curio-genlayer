@@ -2,16 +2,18 @@
 
 ## Completed in this revision
 
-- Removed Shelby, Aptos, Ethereum payment, Solana, Neon and legacy Express paths.
-- Reframed the product around a consensus-critical GenLayer use case.
-- Added Python Intelligent Contract, custom equivalence validation and GEN escrow settlement.
-- Added React wallet/on-chain flow and honest loading, empty, blocked, success, error and more-info states.
-- Added source tests, project checks, CI, architecture, security and submission documentation.
+- Removed legacy Shelby/Aptos/Solana/payment paths.
+- Reframed the product around a consensus-critical GenLayer learning bounty.
+- Added Python Intelligent Contract, independent validator equivalence, GEN escrow settlement, party access control, bounded untrusted evidence, and explicit error paths.
+- Added React wallet/on-chain flow and honest loading, empty, blocked, success, error, and more-info states.
+- Added source tests, project checks, GitHub CI, Pages publishing, Dependabot, push helpers, architecture/security docs, deployment evidence tooling, demo script, and submission draft.
 
-## Manual milestones
+## Owner milestones
 
-1. Install dependencies and run the full GenVM linter/direct test suite.
-2. Deploy to GenLayer Studio, then Testnet Bradbury.
-3. Insert real deployment evidence only after Explorer verification.
-4. Deploy the frontend with the contract address.
-5. Record a full functional demo and submit to DoraHacks.
+1. Push the repository using `GITHUB_SETUP.md`.
+2. Let public CI install dependencies and run the full check matrix.
+3. Deploy to Studio, then Testnet Bradbury with a funded owner account.
+4. Record real deployment evidence with `scripts/record_deployment.py`.
+5. Configure GitHub repository variables and publish the frontend through Pages.
+6. Run the full wallet flow and verify GEN values and settlement messages in Explorer.
+7. Record the demo and submit the verified links.

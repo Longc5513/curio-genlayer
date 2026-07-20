@@ -1,0 +1,37 @@
+name: Bug report
+description: Report a reproducible contract, wallet, or frontend issue
+title: "bug: "
+labels: [bug]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Intelligent Contract
+        - Validator consensus
+        - GEN escrow or settlement
+        - Wallet integration
+        - Frontend
+        - Deployment
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Include the network, contract address, transaction hash, and exact steps when available.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true

@@ -1,7 +1,9 @@
 {
   "network": "testnetBradbury",
-  "contractAddress": "TBD_AFTER_VERIFICATION",
-  "deploymentTransaction": "TBD_AFTER_VERIFICATION",
-  "explorerUrl": "TBD_AFTER_VERIFICATION",
-  "deployedAt": "TBD_AFTER_VERIFICATION"
+  "contractAddress": null,
+  "deploymentTransaction": null,
+  "explorerUrl": null,
+  "liveApp": null,
+  "deployedAt": null,
+  "contractSourceSha256": null
 }

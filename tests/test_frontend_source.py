@@ -31,3 +31,10 @@ def test_frontend_has_honest_states():
     ):
         status_source = (ROOT / "app/src/components/StatusBadge.tsx").read_text()
         assert phrase in APP or phrase in GENLAYER or phrase in status_source
+
+
+def test_frontend_sends_real_gen_value_and_pages_base_is_configurable():
+    assert "value," in GENLAYER
+    assert "parseGen(form.reward)" in APP
+    vite = (ROOT / "app/vite.config.ts").read_text(encoding="utf-8")
+    assert "VITE_BASE_PATH" in vite

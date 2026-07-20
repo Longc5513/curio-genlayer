@@ -22,6 +22,52 @@ export function shortAddress(value?: string): string {
 }
 
 export function cleanError(error: unknown): string {
-  if (error instanceof Error) return error.message.replace(/^Error:\s*/, '')
-  return String(error)
+  console.error('Cleaned error source:', error)
+  
+  if (error instanceof Error) {
+    return error.message.replace(/^Error:\s*/, '')
+  }
+
+  if (error && typeof error === 'object') {
+    const err = error as Record<string, unknown>
+    
+    // Try standard error properties
+    const message =
+      typeof err.message === 'string' ? err.message :
+      typeof err.reason === 'string' ? err.reason :
+      typeof err.error === 'string' ? err.error :
+      typeof err['Error'] === 'string' ? err['Error'] as string :
+      undefined
+
+    if (message) return message.replace(/^Error:\s*/, '')
+
+    // Try nested error objects
+    const nested = err.data as Record<string, unknown> | undefined
+      || err.originalError as Record<string, unknown> | undefined
+      || (err.error as Record<string, unknown> | undefined)
+    if (nested && typeof nested === 'object') {
+      const nestedMessage =
+        typeof nested.message === 'string' ? nested.message :
+        typeof nested.reason === 'string' ? nested.reason :
+        undefined
+      if (nestedMessage) return nestedMessage.replace(/^Error:\s*/, '')
+    }
+
+    // Try toString if available
+    if (typeof err.toString === 'function') {
+      const str = err.toString()
+      if (str && str !== '[object Object]') return str
+    }
+
+    // Last resort: JSON stringify with error handling
+    try {
+      const json = JSON.stringify(err)
+      if (json && json !== '{}') return json
+    } catch {
+      // Ignore stringify errors
+    }
+  }
+
+  const str = String(error)
+  return (str && str !== '[object Object]') ? str : 'Unknown error (check console for details)'
 }

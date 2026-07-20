@@ -195,12 +195,24 @@ export async function getContractHealth(): Promise<ContractHealth> {
       error: '',
     }
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error)
+    let helpMessage = errorMsg
+    
+    // Provide helpful guidance for common errors
+    if (errorMsg.includes('revert') || errorMsg.includes('call') || errorMsg.includes('reverted')) {
+      helpMessage = `Contract not found at ${contractAddress} on ${networkName}. Deploy the contract first: https://studio.genlayer.com`
+    } else if (errorMsg.includes('network') || errorMsg.includes('NETWORK') || errorMsg.includes('RPC')) {
+      helpMessage = `Network error: Cannot reach ${networkName} RPC. Check your connection or the contract address.`
+    }
+    
+    console.error(`Contract health check failed on ${networkName} at ${contractAddress}:`, error)
+    
     return {
       configured: true,
       reachable: false,
       version: '',
       stats: null,
-      error: error instanceof Error ? error.message : String(error),
+      error: helpMessage,
     }
   }
 }

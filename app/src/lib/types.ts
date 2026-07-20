@@ -35,4 +35,8 @@ export interface TxState {
   label: string
   hash?: `0x${string}`
   error?: string
+  submittedValueWei?: bigint
+  emittedValueWei?: bigint
+  emittedMessageCount?: number
+  executionResult?: string
 }

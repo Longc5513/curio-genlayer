@@ -15,9 +15,11 @@
 
 ## Deployment evidence
 
-- [ ] Contract deployed and verified in GenLayer Explorer.
+- [x] Studio contract address supplied and wired into the frontend.
+- [ ] Imported Studio source verified to match the repository contract exactly.
 - [ ] Create-bounty transaction visibly carries a positive GEN value.
-- [ ] `deployment.json` generated with `scripts/record_deployment.py` and committed.
+- [x] `deployment.json` committed with the supplied Studio address.
+- [ ] Deployment transaction and source match independently verified.
 - [ ] `python scripts/verify_submission.py` passes.
 - [ ] GitHub Actions `Curio checks` workflow passes publicly.
 - [ ] Repository variables configured and GitHub Pages frontend deployed.
@@ -30,8 +32,8 @@
 
 | Evidence | Verified value |
 |---|---|
-| Network | `testnetBradbury` |
-| Contract address | Pending real deployment |
+| Network | `studionet` |
+| Contract address | `0x679737cCE4804439f2CF6d6082224A58658D0011` (user-provided Studio deployment) |
 | Deployment transaction | Pending real deployment |
 | Positive GEN escrow transaction | Pending real transaction |
 | Adjudication transaction | Pending real transaction |

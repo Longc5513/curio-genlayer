@@ -22,16 +22,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      VITE_GENLAYER_CONTRACT_ADDRESS: ${{ vars.GENLAYER_CONTRACT_ADDRESS }}
-      VITE_GENLAYER_NETWORK: ${{ vars.GENLAYER_NETWORK || 'testnetBradbury' }}
-      VITE_GENLAYER_EXPLORER_URL: ${{ vars.GENLAYER_EXPLORER_URL }}
+      VITE_GENLAYER_CONTRACT_ADDRESS: ${{ vars.GENLAYER_CONTRACT_ADDRESS || '0x679737cCE4804439f2CF6d6082224A58658D0011' }}
+      VITE_GENLAYER_NETWORK: ${{ vars.GENLAYER_NETWORK || 'studionet' }}
+      VITE_GENLAYER_EXPLORER_URL: ${{ vars.GENLAYER_EXPLORER_URL || 'https://genlayer-explorer.vercel.app' }}
       VITE_BASE_PATH: /${{ github.event.repository.name }}/
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm --prefix app install --no-audit --no-fund
+      - run: npm --prefix app ci --no-audit --no-fund
       - run: npm --prefix app run build
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

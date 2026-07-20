@@ -7,6 +7,8 @@ required = [
     "contracts/curio_learning_bounties.py",
     "app/src/lib/genlayer.ts",
     "app/.env.example",
+    "app/.env.production",
+    "app/package-lock.json",
     ".env.example",
     "README.md",
     "ARCHITECTURE.md",
@@ -15,6 +17,7 @@ required = [
     "GENLAYER_REVIEW.md",
     "VALIDATION_REPORT.md",
     "deployment.example.json",
+    "deployment.json",
     ".github/workflows/ci.yml",
     ".github/workflows/pages.yml",
     ".github/dependabot.yml",
@@ -37,7 +40,7 @@ secret_patterns = {
     "64-byte hex private key": re.compile(r"(?<![A-Za-z0-9])0x[a-fA-F0-9]{64}(?![A-Za-z0-9])"),
 }
 for path in ROOT.rglob("*"):
-    excluded = {".git", "node_modules", ".genlayer-codex-kit"}
+    excluded = {".git", "node_modules", "dist", ".genlayer-codex-kit", "__pycache__"}
     if not path.is_file() or any(part in excluded for part in path.parts):
         continue
     if path.suffix.lower() in {".png", ".jpg", ".jpeg", ".zip", ".docx"}:

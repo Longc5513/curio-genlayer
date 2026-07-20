@@ -354,12 +354,16 @@ export async function getContractHealth(): Promise<ContractHealth> {
       error: '',
     }
   } catch (error) {
+    const raw = errorMessage(error)
+    const hint = raw.toLowerCase().includes('execution failed')
+      ? 'The contract may not be deployed on this network. Run: gl contract deploy --file contracts/curio_learning_bounties.py --network studionet'
+      : ''
     return {
       configured: true,
       reachable: false,
       version: '',
       stats: null,
-      error: errorMessage(error),
+      error: hint ? `${raw}\n${hint}` : raw,
     }
   }
 }

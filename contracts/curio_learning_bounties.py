@@ -57,10 +57,6 @@ class CurioLearningBounties(gl.Contract):
     total_refunded_wei: u256
 
     def __init__(self):
-        self.bounties = TreeMap[str, LearningBounty]()
-        self.bounty_ids = DynArray[str]()
-        self.requester_bounties = TreeMap[Address, DynArray[str]]()
-        self.contributor_bounties = TreeMap[Address, DynArray[str]]()
         self.total_escrowed_wei = u256(0)
         self.total_paid_wei = u256(0)
         self.total_refunded_wei = u256(0)

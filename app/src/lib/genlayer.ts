@@ -55,7 +55,7 @@ export interface TransactionEvidence {
   submittedValueWei: bigint
 }
 
-const DEFAULT_CONTRACT_ADDRESS = '0x679737cCE4804439f2CF6d6082224A58658D0011' as const
+const DEFAULT_CONTRACT_ADDRESS = '0xD0fAC36E518A85315E7bc1dEd7Cbc2233e6a7E8C' as const
 const chainMap = { localnet, studionet, testnetAsimov, testnetBradbury } as const
 const configuredNetwork = import.meta.env.VITE_GENLAYER_NETWORK || 'studionet'
 

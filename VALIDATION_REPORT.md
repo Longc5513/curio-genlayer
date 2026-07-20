@@ -4,24 +4,19 @@ Validated on **2026-07-20** from the packaged source tree.
 
 ## Completed locally
 
-- Python syntax parsing for the Intelligent Contract.
-- Repository/source invariant tests for GenLayer consensus primitives, substantive validator comparison, settlement ordering, prompt-injection controls, stable evidence-failure handling, wallet integration, on-chain reads/writes, and honest UI states.
-- Repository checker for required files, obvious embedded secrets, and legacy Shelby/Aptos/Solana/Ethereum frontend dependencies.
-- GenLayer Codex Kit doctor and file-integrity checks.
-- TypeScript source validation with local declarations where third-party packages were unavailable.
+- Python syntax parsing for the Intelligent Contract and deployment helper scripts.
+- 13 source/invariant tests covering GenLayer consensus primitives, substantive validator comparison, settlement ordering, adjudication access control, prompt-injection boundaries, stable evidence-failure handling, real wallet integration, GEN value passing, on-chain reads/writes, GitHub Pages base configuration, and honest UI states.
+- Repository checker for required files, obvious embedded secrets, and legacy Shelby/Aptos/Solana frontend dependencies.
+- GitHub-ready repository files: CI, Pages workflow, Dependabot, issue/PR templates, PowerShell/Bash push helpers, deployment recorder, submission verifier, demo script, and submission draft.
 - ZIP integrity test after packaging.
 
-## Requires a networked GenLayer environment
+## Requires the owner's network account or hosted environment
 
-The following are included but cannot be truthfully marked as completed inside an offline source-editing environment:
+- Download npm/Python dependencies and run the hosted CI matrix.
+- Run `genvm-lint` and `genlayer-test` direct/Studio suites with official tooling.
+- Deploy the Intelligent Contract using a funded GenLayer account.
+- Verify the deployed address, positive escrow value, consensus activity, and settlement messages in Explorer.
+- Configure GitHub repository variables and deploy the frontend through Pages.
+- Record a demo video and publish the DoraHacks submission.
 
-- Install dependencies and run `genvm-lint` against the official GenVM linter.
-- Run direct-mode tests with `genlayer-test`.
-- Run Studio integration tests with `gltest` and active validators.
-- Build the frontend with downloaded npm dependencies.
-- Deploy the Intelligent Contract to a selected GenLayer network.
-- Verify the deployed address and activity in Explorer.
-- Deploy and manually test the live frontend with a real wallet.
-- Record a demo video and create the DoraHacks submission.
-
-Until the deployed address, Explorer evidence, live app, and demo are supplied, the honest review outcome is **request more info** rather than accepted.
+These external steps cannot be truthfully fabricated in source. `scripts/record_deployment.py` and `scripts/verify_submission.py` are included to make the verified handoff reproducible.

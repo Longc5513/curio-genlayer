@@ -1,0 +1,50 @@
+name: Deploy frontend to GitHub Pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - '.github/workflows/pages.yml'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VITE_GENLAYER_CONTRACT_ADDRESS: ${{ vars.GENLAYER_CONTRACT_ADDRESS }}
+      VITE_GENLAYER_NETWORK: ${{ vars.GENLAYER_NETWORK || 'testnetBradbury' }}
+      VITE_GENLAYER_EXPLORER_URL: ${{ vars.GENLAYER_EXPLORER_URL }}
+      VITE_BASE_PATH: /${{ github.event.repository.name }}/
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm --prefix app install --no-audit --no-fund
+      - run: npm --prefix app run build
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: app/dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

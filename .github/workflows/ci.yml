@@ -2,11 +2,20 @@ name: Curio checks
 
 on:
   push:
+    branches: ['**']
   pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   repository-checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -16,8 +25,9 @@ jobs:
       - run: python -m pytest tests/test_contract_source.py tests/test_frontend_source.py -q
       - run: python scripts/check_project.py
 
-  contract-lint:
+  contract-lint-and-direct-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -25,24 +35,16 @@ jobs:
           python-version: '3.12'
       - run: pip install -r requirements.txt
       - run: genvm-lint check contracts/curio_learning_bounties.py
-
-  direct-contract-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: pip install -r requirements.txt
       - run: python -m pytest tests/direct -v
 
   frontend-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm --prefix app install
+      - run: npm --prefix app install --no-audit --no-fund
       - run: npm --prefix app run lint
       - run: npm --prefix app run build

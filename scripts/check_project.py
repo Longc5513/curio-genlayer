@@ -15,8 +15,16 @@ required = [
     "GENLAYER_REVIEW.md",
     "VALIDATION_REPORT.md",
     "deployment.example.json",
-    "deploy/deployScript.ts",
     ".github/workflows/ci.yml",
+    ".github/workflows/pages.yml",
+    ".github/dependabot.yml",
+    "GITHUB_SETUP.md",
+    "DORAHACKS_SUBMISSION.md",
+    "docs/DEMO_SCRIPT.md",
+    "scripts/push-github.ps1",
+    "scripts/push-github.sh",
+    "scripts/record_deployment.py",
+    "scripts/verify_submission.py",
     "LICENSE",
 ]
 errors: list[str] = []

@@ -1,1 +1,0 @@
-Load REVIEWER only. Review read-only in isolation. Apply gate before scoring. Verify contract, frontend, wallet, address, transaction, state, value, Studio, and Explorer where available. Return schema-valid JSON and builder-facing Markdown.

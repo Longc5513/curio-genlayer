@@ -1,2 +1,0 @@
-# Rubric
-Score 0-5 from zero: GenLayer fit, Contract quality, Engineering, Frontend/UX. Most projects receive 1-2; 4-5 need exceptional evidence. GenLayer fit: none/decorative/AI but noncritical/material/important decentralized judgment/core trust model. Contract: none/example/weak/real/strong/advanced. Engineering: empty/minimal/fragile/good/clean/excellent. Frontend: none/basic/rough/works/good/complete accessible reliable.

@@ -65,7 +65,7 @@ export async function sendContractCall(
   })) as unknown as TransactionHash
   onHash?.(hash)
   const receipt = await readClient.waitForTransactionReceipt({
-    hash,
+    hash: (hash as unknown) as any,
     status: TransactionStatus.FINALIZED,
   })
   const executionName = String(receipt.txExecutionResultName || '')

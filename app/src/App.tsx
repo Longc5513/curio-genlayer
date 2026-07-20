@@ -1,407 +1,310 @@
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
-import { StatePanel } from './components/StatePanel'
-import { StatusBadge } from './components/StatusBadge'
-import { TxPanel } from './components/TxPanel'
-import { cleanError, formatGen, parseGen, shortAddress } from './lib/format'
+import { useCallback, useEffect, useState } from 'react'
+import { shortAddr, scoreColor, cleanError } from './lib/format'
 import {
-  connectWallet,
-  contractAddress,
-  getConnectedWallet,
-  ensureWalletNetwork,
-  getContractHealth,
-  listBounties,
-  networkName,
-  sendContractCall,
-  studioImportUrl,
-  subscribeWallet,
-  type ContractHealth,
+  connectWallet, getConnectedWallet, subscribeWallet,
+  getContractHealth, listCompanies, batchAddCompanies,
+  listCompanyTasks, listCompanyResults, createTask, adjudicate,
+  batchCreateTasks, batchAdjudicate, listBatches,
+  transactionUrl, contractAddress, networkName, studioImportUrl,
+  type Company, type AdjudicationTask, type AdjudicationResult,
+  type BatchJob, type ContractHealth, type TxState,
 } from './lib/genlayer'
-import type { LearningBounty, TxState } from './lib/types'
 
-const idleTx: TxState = { phase: 'idle', label: '' }
-const zeroAddress = '0x0000000000000000000000000000000000000000'
+const FIELDS = ['technology','finance','legal','marketing','operations','hr','compliance','security','quality','sustainability','innovation']
+const SAMPLE_CRITERIA = JSON.stringify([{name:"Accuracy",weight:30},{name:"Completeness",weight:25},{name:"Compliance",weight:25},{name:"Innovation",weight:20}],null,2)
 
-type View = 'market' | 'create' | 'review' | 'about'
+type View = 'dashboard' | 'companies' | 'adjudicate' | 'batches' | 'results'
 
 export default function App() {
-  const [view, setView] = useState<View>('market')
+  const [view, setView] = useState<View>('dashboard')
   const [account, setAccount] = useState<`0x${string}` | null>(null)
-  const [bounties, setBounties] = useState<LearningBounty[]>([])
+  const [health, setHealth] = useState<ContractHealth>({configured:true,reachable:false,version:'',stats:null,error:''})
+  const [companies, setCompanies] = useState<Company[]>([])
+  const [batches, setBatches] = useState<BatchJob[]>([])
+  const [selected, setSelected] = useState<Company | null>(null)
+  const [tasks, setTasks] = useState<AdjudicationTask[]>([])
+  const [results, setResults] = useState<AdjudicationResult[]>([])
+  const [tx, setTx] = useState<TxState>({phase:'idle',label:''})
   const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState('')
-  const [selected, setSelected] = useState<LearningBounty | null>(null)
-  const [tx, setTx] = useState<TxState>(idleTx)
-  const [health, setHealth] = useState<ContractHealth>({
-    configured: /^0x[a-fA-F0-9]{40}$/.test(contractAddress),
-    reachable: false,
-    version: '',
-    stats: null,
-    error: '',
-  })
-
-  const configured = health.configured
 
   const refresh = useCallback(async () => {
     setLoading(true)
-    setLoadError('')
-    const nextHealth = await getContractHealth()
-    setHealth(nextHealth)
-    if (!nextHealth.configured || !nextHealth.reachable) {
-      setBounties([])
-      setLoading(false)
-      return
-    }
     try {
-      const rows = await listBounties()
-      setBounties([...rows].reverse())
-      setSelected((current) => current ? rows.find((row) => row.bounty_id === current.bounty_id) || current : null)
-    } catch (error) {
-      setLoadError(cleanError(error))
-    } finally {
-      setLoading(false)
-    }
+      const h = await getContractHealth()
+      setHealth(h)
+      if (h.reachable) {
+        const [c, b] = await Promise.all([listCompanies(), listBatches()])
+        setCompanies(c); setBatches(b)
+      }
+    } catch(e) { console.error(e) }
+    finally { setLoading(false) }
   }, [])
 
   useEffect(() => { void refresh() }, [refresh])
   useEffect(() => {
     void getConnectedWallet().then(setAccount).catch(() => setAccount(null))
-    return subscribeWallet(
-      setAccount,
-      () => {
-        setTx({ phase: 'idle', label: '' })
-        void refresh()
-      },
-    )
+    return subscribeWallet(setAccount, () => void refresh())
   }, [refresh])
 
-  async function handleConnect() {
-    setTx({ phase: 'wallet', label: 'Waiting for wallet approval…' })
-    let connected: `0x${string}` | null = null
-    try {
-      connected = await connectWallet()
-      // Keep the account visible even when the separate network-switch request fails.
-      setAccount(connected)
-      setTx({ phase: 'wallet', label: `Wallet connected · switching to ${networkName}…` })
-      await ensureWalletNetwork()
-      setTx({ phase: 'success', label: `Wallet connected to ${networkName}` })
-    } catch (error) {
-      if (!connected) {
-        connected = await getConnectedWallet().catch(() => null)
-        if (connected) setAccount(connected)
-      }
-      setTx({
-        phase: 'error',
-        label: connected ? 'Wallet connected · GenLayer network setup failed' : 'Wallet connection failed',
-        error: cleanError(error),
-      })
-    }
+  const loadCompany = async (c: Company) => {
+    setSelected(c)
+    const [t, r] = await Promise.all([listCompanyTasks(c.company_id), listCompanyResults(c.company_id)])
+    setTasks(t); setResults(r)
   }
 
-  async function transact(label: string, fn: string, args: unknown[], value = 0n) {
-    let activeAccount = account
+  const handleConnect = async () => {
+    setTx({phase:'wallet',label:'Connecting wallet…'})
     try {
-      if (!activeAccount) {
-        setTx({ phase: 'wallet', label: 'Connect your wallet to continue…' })
-        activeAccount = await connectWallet()
-        setAccount(activeAccount)
-      }
-      setTx({ phase: 'submitting', label: `${label}: confirm in your wallet…` })
-      const evidence = await sendContractCall(activeAccount, fn, args, value, (nextHash) => {
-        setTx({ phase: 'consensus', label: `${label}: validators are reaching consensus…`, hash: nextHash })
-      })
-      setTx({
-        phase: 'success',
-        label: `${label}: finalized successfully`,
-        hash: evidence.hash,
-        submittedValueWei: evidence.submittedValueWei,
-        emittedValueWei: evidence.emittedValueWei,
-        emittedMessageCount: evidence.emittedMessageCount,
-        executionResult: evidence.executionResult,
-      })
-      await refresh()
-    } catch (error) {
-      setTx({ phase: 'error', label: `${label} failed`, error: cleanError(error) })
-      throw error
-    }
+      const a = await connectWallet(); setAccount(a)
+      setTx({phase:'success',label:'Wallet connected'})
+    } catch(e) { setTx({phase:'error',label:'Connection failed',error:cleanError(e)}) }
   }
 
-  const stats = useMemo(() => ({
-    total: bounties.length,
-    active: bounties.filter((item) => ['open', 'submitted', 'more_info'].includes(item.status)).length,
-    settled: bounties.filter((item) => ['paid', 'refunded'].includes(item.status)).length,
-  }), [bounties])
+  const handleBatchAdd = async (json: string) => {
+    if (!account) return
+    setTx({phase:'submitting',label:'Adding companies…'})
+    try {
+      await batchAddCompanies(account, json, (h) => setTx({phase:'consensus',label:'Confirming on-chain…',hash:h}))
+      setTx({phase:'success',label:'Companies added!'}); await refresh()
+    } catch(e) { setTx({phase:'error',label:'Failed',error:cleanError(e)}) }
+  }
+
+  const handleAdjudicate = async (tid: string) => {
+    if (!account) return
+    setTx({phase:'submitting',label:`Running adjudication for ${tid}…`})
+    try {
+      await adjudicate(account, tid, (h) => setTx({phase:'consensus',label:'Validators evaluating…',hash:h}))
+      setTx({phase:'success',label:'Adjudication complete!'})
+      if (selected) { const r = await listCompanyResults(selected.company_id); setResults(r) }
+    } catch(e) { setTx({phase:'error',label:'Failed',error:cleanError(e)}) }
+  }
+
+  const handleBatchScore = async (field: string) => {
+    if (!account || companies.length === 0) return
+    const cids = companies.filter(c=>c.is_active).slice(0,10).map(c=>c.company_id)
+    setTx({phase:'submitting',label:`Batch scoring ${cids.length} companies on ${field}…`})
+    try {
+      await batchCreateTasks(account, `Batch ${field} ${new Date().toISOString().slice(0,10)}`, JSON.stringify(cids), field, `${field} audit for {company}`, `Evaluate {company} on ${field} criteria`, SAMPLE_CRITERIA, (h) => setTx({phase:'consensus',label:'Creating tasks…',hash:h}))
+      setTx({phase:'success',label:'Batch tasks created!'}); await refresh()
+    } catch(e) { setTx({phase:'error',label:'Failed',error:cleanError(e)}) }
+  }
 
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <button className="brand" onClick={() => setView('market')} aria-label="Curio home">
-          <span className="brand-mark">C</span>
-          <span><strong>Curio</strong><small>Learning bounties on GenLayer</small></span>
-        </button>
-        <nav aria-label="Primary navigation">
-          {(['market', 'create', 'review', 'about'] as View[]).map((item) => (
-            <button key={item} className={view === item ? 'active' : ''} onClick={() => setView(item)}>
-              {item === 'market' ? 'Bounties' : item === 'create' ? 'Create' : item === 'review' ? 'My work' : 'How it works'}
-            </button>
-          ))}
+    <div className="app">
+      {/* Sidebar */}
+      <aside className="sidebar">
+        <div className="sidebar-brand">
+          <div className="brand-icon">C</div>
+          <div><strong>Curio</strong><small>Enterprise</small></div>
+        </div>
+        <nav>
+          {([['dashboard','Dashboard'],['companies','Companies'],['adjudicate','Adjudicate'],['batches','Batches'],['results','Results']] as [View,string][]).map(([v,l]) =>
+            <button key={v} className={view===v?'active':''} onClick={()=>setView(v)}>{l}</button>
+          )}
         </nav>
-        <button className="wallet-button" onClick={handleConnect}>
-          <span className={account ? 'wallet-light wallet-light--on' : 'wallet-light'} />
-          {account ? shortAddress(account) : 'Connect wallet'}
-        </button>
-      </header>
+        <div className="sidebar-footer">
+          <div className="network-badge">{networkName}</div>
+          <button className="wallet-btn" onClick={handleConnect}>
+            <span className={account?'dot on':'dot'}/>{account ? shortAddr(account) : 'Connect'}
+          </button>
+        </div>
+      </aside>
 
+      {/* Main */}
       <main>
-        <TxPanel state={tx} />
-        {!configured && (
-          <StatePanel tone="danger" title="Invalid Intelligent Contract configuration">
-            Set a valid VITE_GENLAYER_CONTRACT_ADDRESS before using the app.
-          </StatePanel>
-        )}
-        {configured && !health.reachable && !loading && (
-          <StatePanel
-            tone="danger"
-            title="The configured Intelligent Contract is not reachable"
-            action={<button className="secondary" onClick={() => void refresh()}>Retry</button>}
-          >
-            Confirm that the contract address belongs to {networkName}. {health.error}
-          </StatePanel>
-        )}
-        {configured && health.reachable && (
-          <StatePanel
-            tone="success"
-            title={`Live Intelligent Contract · ${health.version || 'version available on-chain'}`}
-            action={<a className="panel-link" href={studioImportUrl} target="_blank" rel="noreferrer">Open in Studio ↗</a>}
-          >
-            Reads and writes use {networkName} at {shortAddress(contractAddress)}. No localStorage wallet or simulated bounty data is used.
-          </StatePanel>
-        )}
-        {view === 'market' && (
-          <MarketView
-            bounties={bounties}
-            loading={loading}
-            error={loadError}
-            stats={stats}
-            contractStats={health.stats}
-            selected={selected}
-            account={account}
-            onSelect={setSelected}
-            onRefresh={refresh}
-            onCreate={() => setView('create')}
-            onTransact={transact}
-          />
-        )}
-        {view === 'create' && <CreateView configured={configured && health.reachable} account={account} onConnect={handleConnect} onTransact={transact} onDone={() => setView('market')} />}
-        {view === 'review' && <MyWorkView account={account} bounties={bounties} onSelect={(item) => { setSelected(item); setView('market') }} />}
-        {view === 'about' && <AboutView />}
-      </main>
+        {/* Topbar */}
+        <header className="topbar">
+          <h1>{view==='dashboard'?'Dashboard':view==='companies'?'Company Management':view==='adjudicate'?'Adjudication Center':view==='batches'?'Batch Operations':'Results & Reports'}</h1>
+          <div className="topbar-stats">
+            {health.stats && <>
+              <span>{health.stats.total_companies} Companies</span>
+              <span>{health.stats.total_tasks} Tasks</span>
+              <span>{health.stats.total_results} Results</span>
+            </>}
+          </div>
+        </header>
 
-      <footer>
-        <span>Curio · {networkName}</span>
-        <a href={studioImportUrl} target="_blank" rel="noreferrer">Contract: {shortAddress(contractAddress)} ↗</a>
-        <a href="https://docs.genlayer.com" target="_blank" rel="noreferrer">GenLayer docs ↗</a>
-      </footer>
+        {/* TX Panel */}
+        {tx.phase !== 'idle' && (
+          <div className={`tx-panel tx-${tx.phase}`}>
+            <strong>{tx.label}</strong>
+            {tx.hash && <a href={transactionUrl(tx.hash)} target="_blank" rel="noreferrer">{tx.hash.slice(0,16)}… ↗</a>}
+            {tx.error && <p>{tx.error}</p>}
+            <button onClick={()=>setTx({phase:'idle',label:''})}>×</button>
+          </div>
+        )}
+
+        {/* Health check */}
+        {!health.reachable && !loading && (
+          <div className="alert alert-danger">
+            <strong>Contract not reachable</strong>
+            <p>{health.error || 'Check network connection'}</p>
+            <button onClick={()=>void refresh()}>Retry</button>
+          </div>
+        )}
+
+        {/* Dashboard */}
+        {view === 'dashboard' && health.reachable && (
+          <div className="dashboard">
+            <div className="metric-grid">
+              <div className="metric-card"><span className="metric-val">{health.stats?.total_companies||0}</span><span className="metric-label">Companies</span></div>
+              <div className="metric-card"><span className="metric-val">{health.stats?.total_tasks||0}</span><span className="metric-label">Tasks</span></div>
+              <div className="metric-card"><span className="metric-val">{health.stats?.total_results||0}</span><span className="metric-label">Results</span></div>
+              <div className="metric-card"><span className="metric-val">{health.stats?.total_batches||0}</span><span className="metric-label">Batches</span></div>
+            </div>
+            <div className="card">
+              <h3>Supported Fields</h3>
+              <div className="field-tags">
+                {health.stats?.supported_fields.map(f => <span key={f} className="tag">{f}</span>)}
+              </div>
+            </div>
+            <div className="card">
+              <h3>Quick Actions</h3>
+              <div className="actions">
+                <button className="btn primary" onClick={()=>setView('companies')}>Manage Companies</button>
+                <button className="btn primary" onClick={()=>setView('adjudicate')}>Start Adjudication</button>
+                <a className="btn secondary" href={studioImportUrl} target="_blank" rel="noreferrer">Open in Studio ↗</a>
+              </div>
+            </div>
+            <div className="card">
+              <h3>Contract Info</h3>
+              <p>Version: {health.version}</p>
+              <p>Address: {shortAddr(contractAddress)}</p>
+              <p>Network: {networkName}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Companies */}
+        {view === 'companies' && (
+          <div className="companies-view">
+            <div className="section-header">
+              <h2>Companies ({companies.length})</h2>
+              <button className="btn primary" onClick={() => {
+                const sample = JSON.stringify([
+                  {company_id:'acme',name:'ACME Corp',industry:'Technology',description:'Leading tech company',website:'https://acme.com',contact_email:'info@acme.com'},
+                  {company_id:'globex',name:'Globex Inc',industry:'Finance',description:'Financial services',website:'https://globex.com',contact_email:'hello@globex.com'},
+                  {company_id:'initech',name:'Initech',industry:'Software',description:'Enterprise solutions',website:'https://initech.com',contact_email:'team@initech.com'},
+                ])
+                void handleBatchAdd(sample)
+              }}>+ Add Sample (3)</button>
+            </div>
+            <div className="company-grid">
+              {companies.map(c => (
+                <div key={c.company_id} className={`company-card ${selected?.company_id===c.company_id?'selected':''}`} onClick={()=>void loadCompany(c)}>
+                  <div className="company-header">
+                    <strong>{c.name}</strong>
+                    <span className={`status ${c.is_active?'active':'inactive'}`}>{c.is_active?'Active':'Inactive'}</span>
+                  </div>
+                  <p className="company-industry">{c.industry}</p>
+                  <p className="company-desc">{c.description?.slice(0,80)}…</p>
+                  <div className="company-meta">
+                    <span>{c.company_id}</span>
+                    <span>{c.website}</span>
+                  </div>
+                </div>
+              ))}
+              {companies.length===0 && <div className="empty">No companies yet. Add some to get started.</div>}
+            </div>
+
+            {/* Selected company detail */}
+            {selected && (
+              <div className="company-detail card">
+                <h3>{selected.name} — Detail</h3>
+                <div className="detail-grid">
+                  <div><strong>ID:</strong> {selected.company_id}</div>
+                  <div><strong>Industry:</strong> {selected.industry}</div>
+                  <div><strong>Email:</strong> {selected.contact_email}</div>
+                  <div><strong>Website:</strong> {selected.website}</div>
+                </div>
+                <h4>Tasks ({tasks.length})</h4>
+                {tasks.map(t => (
+                  <div key={t.task_id} className="task-row">
+                    <span className="tag">{t.field}</span>
+                    <span>{t.title}</span>
+                    <span className={`status ${t.status}`}>{t.status}</span>
+                    {t.status==='pending' && <button className="btn small" onClick={()=>void handleAdjudicate(t.task_id)}>Run</button>}
+                  </div>
+                ))}
+                <h4>Results ({results.length})</h4>
+                {results.map(r => (
+                  <div key={r.result_id} className="result-row">
+                    <span className="tag">{r.field}</span>
+                    <span className="score" style={{color:scoreColor(r.overall_score)}}>{r.overall_score}/100</span>
+                    <span className={`verdict ${r.verdict}`}>{r.verdict}</span>
+                    <p>{r.reasoning?.slice(0,100)}…</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Adjudicate */}
+        {view === 'adjudicate' && (
+          <div className="adjudicate-view">
+            <h2>Batch Score by Field</h2>
+            <p>Select a field to run AI-powered adjudication on all active companies (max 10).</p>
+            <div className="field-grid">
+              {FIELDS.map(f => (
+                <button key={f} className="field-card" onClick={()=>void handleBatchScore(f)}>
+                  <strong>{f}</strong>
+                  <small>Score all companies</small>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Batches */}
+        {view === 'batches' && (
+          <div className="batches-view">
+            <h2>Batch Jobs ({batches.length})</h2>
+            {batches.map(b => (
+              <div key={b.batch_id} className="batch-card card">
+                <div className="batch-header">
+                  <strong>{b.name}</strong>
+                  <span className={`status ${b.status}`}>{b.status}</span>
+                </div>
+                <div className="batch-stats">
+                  <span>Field: {b.field}</span>
+                  <span>Total: {b.total}</span>
+                  <span>Done: {b.completed}</span>
+                  <span>Failed: {b.failed}</span>
+                </div>
+                {b.status==='pending' && <button className="btn primary" onClick={()=>void (async()=>{
+                  if(!account)return; setTx({phase:'submitting',label:'Running batch…'})
+                  try{await batchAdjudicate(account,b.batch_id,(h)=>setTx({phase:'consensus',label:'Processing…',hash:h}));setTx({phase:'success',label:'Batch done!'});await refresh()}catch(e){setTx({phase:'error',label:'Failed',error:cleanError(e)})}
+                })()}>Run Batch</button>}
+              </div>
+            ))}
+            {batches.length===0 && <div className="empty">No batch jobs yet.</div>}
+          </div>
+        )}
+
+        {/* Results */}
+        {view === 'results' && (
+          <div className="results-view">
+            <h2>All Results</h2>
+            {companies.map(c => (
+              <div key={c.company_id} className="card" style={{marginBottom:16}}>
+                <h3>{c.name}</h3>
+                <button className="btn small" onClick={()=>void loadCompany(c)}>Load Results</button>
+                {selected?.company_id===c.company_id && results.map(r => (
+                  <div key={r.result_id} className="result-row">
+                    <span className="tag">{r.field}</span>
+                    <span className="score" style={{color:scoreColor(r.overall_score)}}>{r.overall_score}/100</span>
+                    <span className={`verdict ${r.verdict}`}>{r.verdict}</span>
+                    <p>{r.reasoning?.slice(0,120)}</p>
+                    {r.recommendations && <small>💡 {r.recommendations?.slice(0,120)}</small>}
+                  </div>
+                ))}
+              </div>
+            ))}
+            {companies.length===0 && <div className="empty">No companies to show results for.</div>}
+          </div>
+        )}
+      </main>
     </div>
   )
-}
-
-function MarketView({ bounties, loading, error, stats, contractStats, selected, account, onSelect, onRefresh, onCreate, onTransact }: {
-  bounties: LearningBounty[]
-  loading: boolean
-  error: string
-  stats: { total: number; active: number; settled: number }
-  contractStats: ContractHealth['stats']
-  selected: LearningBounty | null
-  account: `0x${string}` | null
-  onSelect: (item: LearningBounty | null) => void
-  onRefresh: () => Promise<void>
-  onCreate: () => void
-  onTransact: (label: string, fn: string, args: unknown[], value?: bigint) => Promise<void>
-}) {
-  return (
-    <>
-      <section className="hero">
-        <div>
-          <div className="eyebrow">Consensus-backed work, not platform promises</div>
-          <h1>Fund a learning outcome.<br /><em>Let validators judge the result.</em></h1>
-          <p>Request a tutorial, research brief, curriculum, or technical lesson. GEN stays in escrow until GenLayer validators independently evaluate the submitted work against your rubric.</p>
-          <div className="hero-actions">
-            <button className="primary" onClick={onCreate}>Create a bounty</button>
-            <button className="secondary" onClick={() => void onRefresh()}>Refresh on-chain data</button>
-          </div>
-        </div>
-        <div className="consensus-card">
-          <div className="consensus-head"><span>Adjudication flow</span><b>Equivalence Principle</b></div>
-          <ol>
-            <li><span>01</span><div><b>Leader evaluates</b><small>Fetches the deliverable and applies the rubric.</small></div></li>
-            <li><span>02</span><div><b>Validators re-evaluate</b><small>Independent answer, not a schema-only check.</small></div></li>
-            <li><span>03</span><div><b>GEN settles</b><small>Accept pays, reject refunds, uncertainty asks for more info.</small></div></li>
-          </ol>
-        </div>
-      </section>
-
-      <section className="metric-row" aria-label="On-chain metrics">
-        <Metric value={String(stats.total)} label="Bounties loaded" />
-        <Metric value={String(stats.active)} label="Active reviews" />
-        <Metric value={String(stats.settled)} label="Settled outcomes" />
-        <Metric
-          value={contractStats ? formatGen(contractStats.total_escrowed_wei) : '—'}
-          label={contractStats?.escrow_is_funded === false ? 'Escrow accounting mismatch' : 'GEN currently escrowed'}
-        />
-      </section>
-
-      <section className="content-grid">
-        <div>
-          <div className="section-heading"><div><span className="eyebrow">Live contract state</span><h2>Learning bounties</h2></div></div>
-          {loading && <StatePanel title="Reading GenLayer state">Loading bounties directly from the configured Intelligent Contract…</StatePanel>}
-          {error && <StatePanel tone="danger" title="Could not read contract">{error}</StatePanel>}
-          {!loading && !error && bounties.length === 0 && (
-            <StatePanel title="No bounties yet" action={<button className="primary small" onClick={onCreate}>Create the first</button>}>
-              The contract returned an empty list. No demo rows were inserted.
-            </StatePanel>
-          )}
-          <div className="bounty-list">
-            {bounties.map((bounty) => (
-              <button className={`bounty-card ${selected?.bounty_id === bounty.bounty_id ? 'selected' : ''}`} key={bounty.bounty_id} onClick={() => onSelect(bounty)}>
-                <div className="bounty-top"><StatusBadge status={bounty.status} /><b>{formatGen(bounty.reward_wei)}</b></div>
-                <h3>{bounty.title}</h3>
-                <p>{bounty.brief}</p>
-                <div className="bounty-meta"><span>#{bounty.bounty_id}</span><span>{shortAddress(bounty.requester)}</span><span>Round {bounty.review_round}</span></div>
-              </button>
-            ))}
-          </div>
-        </div>
-        <BountyDetail bounty={selected} account={account} onClose={() => onSelect(null)} onTransact={onTransact} />
-      </section>
-    </>
-  )
-}
-
-function Metric({ value, label }: { value: string; label: string }) {
-  return <div className="metric"><strong>{value}</strong><span>{label}</span></div>
-}
-
-function BountyDetail({ bounty, account, onClose, onTransact }: {
-  bounty: LearningBounty | null
-  account: `0x${string}` | null
-  onClose: () => void
-  onTransact: (label: string, fn: string, args: unknown[], value?: bigint) => Promise<void>
-}) {
-  const [submissionUrl, setSubmissionUrl] = useState('')
-  const [note, setNote] = useState('')
-  if (!bounty) return <aside className="detail empty-detail"><div><span>↗</span><h3>Select a bounty</h3><p>Inspect the rubric, submission evidence, consensus result, and available on-chain actions.</p></div></aside>
-
-  const activeBounty = bounty
-  const isRequester = account?.toLowerCase() === activeBounty.requester.toLowerCase()
-  const isContributor = account?.toLowerCase() === activeBounty.contributor.toLowerCase()
-  const canSubmit = activeBounty.status === 'open' || (activeBounty.status === 'more_info' && isContributor)
-
-  async function submit(event: FormEvent) {
-    event.preventDefault()
-    try {
-      await onTransact('Submit deliverable', 'submit_solution', [activeBounty.bounty_id, submissionUrl, note])
-      setSubmissionUrl('')
-      setNote('')
-    } catch {
-      // Global transaction state already shows the actionable contract/wallet error.
-    }
-  }
-
-  return (
-    <aside className="detail">
-      <button className="close" onClick={onClose} aria-label="Close">×</button>
-      <div className="detail-title"><StatusBadge status={bounty.status} /><h2>{bounty.title}</h2><div className="reward">{formatGen(bounty.reward_wei)} escrowed</div></div>
-      <DetailBlock title="Brief"><p>{bounty.brief}</p></DetailBlock>
-      <DetailBlock title="Acceptance rubric"><pre>{bounty.rubric}</pre></DetailBlock>
-      {bounty.reference_url && <DetailBlock title="Reference"><a href={bounty.reference_url} target="_blank" rel="noreferrer">Open requester reference ↗</a></DetailBlock>}
-      {bounty.submission_url && (
-        <DetailBlock title="Submitted evidence">
-          <a href={bounty.submission_url} target="_blank" rel="noreferrer">Open deliverable ↗</a>
-          <p>{bounty.submission_note}</p>
-        </DetailBlock>
-      )}
-      {bounty.verdict !== 'pending' && (
-        <div className="verdict">
-          <div><span>Consensus verdict</span><strong>{bounty.verdict.replace('_', ' ')}</strong></div>
-          <div><span>Quality</span><strong>{bounty.quality_score}/100</strong></div>
-          <div><span>Criteria</span><strong>{bounty.criteria_met}/10</strong></div>
-          <p>{bounty.reasoning}</p>
-          {bounty.missing_evidence && <small>Missing: {bounty.missing_evidence}</small>}
-        </div>
-      )}
-      {canSubmit && !isRequester && (
-        <form className="inline-form" onSubmit={submit}>
-          <h3>{bounty.status === 'more_info' ? 'Provide requested evidence' : 'Submit your work'}</h3>
-          <label>Public HTTPS deliverable URL<input type="url" required value={submissionUrl} onChange={(e: ChangeEvent<HTMLInputElement>) => setSubmissionUrl(e.target.value)} placeholder="https://…" /></label>
-          <label>Evidence note<textarea required minLength={10} value={note} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setNote(e.target.value)} placeholder="Explain what you delivered and how it meets the rubric." /></label>
-          <button className="primary" type="submit">Record submission on-chain</button>
-        </form>
-      )}
-      {bounty.status === 'submitted' && (isRequester || isContributor) && (
-        <button className="primary full" onClick={() => { void onTransact('Run AI adjudication', 'adjudicate', [bounty.bounty_id]).catch(() => undefined) }}>Run validator consensus</button>
-      )}
-      {bounty.status === 'open' && isRequester && (
-        <button className="danger full" onClick={() => { void onTransact('Cancel bounty', 'cancel_open_bounty', [bounty.bounty_id]).catch(() => undefined) }}>Cancel and refund escrow</button>
-      )}
-      {!account && <p className="hint">Connect a wallet to see actions available to this account.</p>}
-      {account && bounty.status === 'submitted' && !isRequester && !isContributor && <p className="hint">Only the requester or current contributor can start adjudication.</p>}
-      {bounty.contributor !== zeroAddress && <p className="hint">Contributor: {shortAddress(bounty.contributor)}</p>}
-    </aside>
-  )
-}
-
-function DetailBlock({ title, children }: { title: string; children: ReactNode }) {
-  return <section className="detail-block"><h3>{title}</h3>{children}</section>
-}
-
-function CreateView({ configured, account, onConnect, onTransact, onDone }: {
-  configured: boolean
-  account: `0x${string}` | null
-  onConnect: () => Promise<void>
-  onTransact: (label: string, fn: string, args: unknown[], value?: bigint) => Promise<void>
-  onDone: () => void
-}) {
-  const [form, setForm] = useState({ id: '', title: '', brief: '', rubric: '', reference: '', reward: '1' })
-  const [localError, setLocalError] = useState('')
-  async function submit(event: FormEvent) {
-    event.preventDefault(); setLocalError('')
-    try {
-      await onTransact('Create bounty', 'create_bounty', [form.id, form.title, form.brief, form.rubric, form.reference], parseGen(form.reward))
-      onDone()
-    } catch (error) { setLocalError(cleanError(error)) }
-  }
-  const update = (key: keyof typeof form, value: string) => setForm((current) => ({ ...current, [key]: value }))
-  return (
-    <section className="form-page">
-      <div className="form-copy"><span className="eyebrow">Escrow a real outcome</span><h1>Create a learning bounty</h1><p>Write a testable brief and rubric. The submitted URL is evaluated by independent GenLayer validators before the reward moves.</p>
-        <div className="rubric-tips"><b>Strong rubric</b><ul><li>Names required sections or deliverables.</li><li>Defines correctness and source quality.</li><li>States what counts as rejection.</li><li>Avoids purely aesthetic preferences.</li></ul></div>
-      </div>
-      <form className="create-form" onSubmit={submit}>
-        <label>Bounty ID<input required minLength={3} maxLength={64} value={form.id} onChange={(e: ChangeEvent<HTMLInputElement>) => update('id', e.target.value)} placeholder="genlayer-course-guide" /><small>Letters, numbers, hyphens and underscores.</small></label>
-        <label>Title<input required minLength={5} maxLength={100} value={form.title} onChange={(e: ChangeEvent<HTMLInputElement>) => update('title', e.target.value)} placeholder="Create a GenLayer validator tutorial" /></label>
-        <label>Detailed brief<textarea required minLength={30} maxLength={2500} value={form.brief} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => update('brief', e.target.value)} placeholder="Describe the audience, scope and expected learning outcome…" /></label>
-        <label>Acceptance rubric<textarea required minLength={30} maxLength={2500} value={form.rubric} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => update('rubric', e.target.value)} placeholder={'1. Accurate Python contract example\n2. Explains leader and validator roles\n3. Includes runnable tests'} /></label>
-        <label>Reference URL <span>(optional)</span><input type="url" value={form.reference} onChange={(e: ChangeEvent<HTMLInputElement>) => update('reference', e.target.value)} placeholder="https://docs.example.com/reference" /></label>
-        <label>GEN reward<input required inputMode="decimal" value={form.reward} onChange={(e: ChangeEvent<HTMLInputElement>) => update('reward', e.target.value)} /></label>
-        {localError && <p className="form-error">{localError}</p>}
-        {account ? (
-          <button className="primary full" type="submit" disabled={!configured}>Create bounty and escrow GEN</button>
-        ) : (
-          <button className="primary full" type="button" onClick={() => void onConnect()}>Connect wallet to continue</button>
-        )}
-        {!configured && <small className="hint">Deploy and configure the contract before submitting.</small>}
-        {!account && <small className="hint">Your form stays filled while you approve the wallet connection.</small>}
-      </form>
-    </section>
-  )
-}
-
-function MyWorkView({ account, bounties, onSelect }: { account: `0x${string}` | null; bounties: LearningBounty[]; onSelect: (item: LearningBounty) => void }) {
-  if (!account) return <StatePanel title="Wallet required">Connect a wallet to filter requester and contributor activity for your address.</StatePanel>
-  const mine = bounties.filter((item) => item.requester.toLowerCase() === account.toLowerCase() || item.contributor.toLowerCase() === account.toLowerCase())
-  return <section className="simple-page"><span className="eyebrow">Address-specific contract state</span><h1>My work</h1><p>{shortAddress(account)} appears in {mine.length} loaded bounties.</p><div className="bounty-list">{mine.map((item) => <button className="bounty-card" onClick={() => onSelect(item)} key={item.bounty_id}><div className="bounty-top"><StatusBadge status={item.status} /><b>{formatGen(item.reward_wei)}</b></div><h3>{item.title}</h3><p>{item.requester.toLowerCase() === account.toLowerCase() ? 'You requested this outcome.' : 'You submitted this deliverable.'}</p></button>)}</div>{mine.length === 0 && <StatePanel title="No matching activity">This address is not yet a requester or contributor in the loaded contract state.</StatePanel>}</section>
-}
-
-function AboutView() {
-  return <section className="about-page"><div><span className="eyebrow">Why GenLayer is essential</span><h1>A normal smart contract cannot grade an open-ended lesson.</h1><p>Curio combines deterministic escrow rules with non-deterministic judgment. The contract fetches unstructured evidence and asks multiple AI-enabled validators to independently derive the payout decision.</p></div><div className="architecture"><article><span>Deterministic</span><h3>Funds and permissions</h3><p>Exact GEN reward, requester ownership, status transitions, replay protection and transfer destination.</p></article><article><span>Non-deterministic</span><h3>Quality judgment</h3><p>Web rendering, rubric interpretation, relevance, evidence quality and completeness.</p></article><article><span>Consensus</span><h3>Substantive comparison</h3><p>Decision must match; score and criteria counts have tight tolerances; payout-boundary disagreements fail validation.</p></article><article><span>Settlement</span><h3>Three honest outcomes</h3><p>Pay contributor, refund requester, or preserve escrow while requesting specific missing evidence.</p></article></div><div className="security-note"><b>Prompt-injection boundary</b><p>Submission and reference pages are explicitly treated as untrusted evidence. Embedded commands are ignored; validators judge only the requester-authored brief and rubric.</p></div></section>
 }

@@ -143,3 +143,8 @@ Frontend `app/.env` or GitHub repository variables:
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## Wallet integration
+
+The frontend discovers browser wallets through EIP-6963, keeps account approval separate from the GenLayer network switch, and signs through the same selected provider. See [`docs/WALLET_TROUBLESHOOTING.md`](docs/WALLET_TROUBLESHOOTING.md).
+

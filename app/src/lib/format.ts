@@ -21,53 +21,44 @@ export function shortAddress(value?: string): string {
   return `${value.slice(0, 6)}…${value.slice(-4)}`
 }
 
+function readableObjectError(error: Record<string, unknown>, seen: Set<unknown>): string {
+  if (seen.has(error)) return ''
+  seen.add(error)
+
+  for (const key of ['shortMessage', 'message', 'details', 'reason'] as const) {
+    const value = error[key]
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+
+  for (const key of ['data', 'cause', 'error', 'originalError'] as const) {
+    const value = error[key]
+    const nested = extractError(value, seen)
+    if (nested) return nested
+  }
+
+  const code = typeof error.code === 'number' ? error.code : undefined
+  if (code === 4001) return 'Request rejected in the wallet.'
+  if (code === -32002) return 'A wallet request is already pending. Open the wallet extension and complete it.'
+  if (code === 4902) return 'The GenLayer network has not been added to this wallet.'
+
+  try {
+    const serialized = JSON.stringify(error, (_key, value) => typeof value === 'bigint' ? value.toString() : value)
+    if (serialized && serialized !== '{}') return serialized
+  } catch {
+    // Fall through to a stable user-facing message.
+  }
+  return ''
+}
+
+function extractError(error: unknown, seen = new Set<unknown>()): string {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+  if (typeof error === 'number' || typeof error === 'boolean' || typeof error === 'bigint') return String(error)
+  if (error && typeof error === 'object') return readableObjectError(error as Record<string, unknown>, seen)
+  return ''
+}
+
 export function cleanError(error: unknown): string {
-  console.error('Cleaned error source:', error)
-  
-  if (error instanceof Error) {
-    return error.message.replace(/^Error:\s*/, '')
-  }
-
-  if (error && typeof error === 'object') {
-    const err = error as Record<string, unknown>
-    
-    // Try standard error properties
-    const message =
-      typeof err.message === 'string' ? err.message :
-      typeof err.reason === 'string' ? err.reason :
-      typeof err.error === 'string' ? err.error :
-      typeof err['Error'] === 'string' ? err['Error'] as string :
-      undefined
-
-    if (message) return message.replace(/^Error:\s*/, '')
-
-    // Try nested error objects
-    const nested = err.data as Record<string, unknown> | undefined
-      || err.originalError as Record<string, unknown> | undefined
-      || (err.error as Record<string, unknown> | undefined)
-    if (nested && typeof nested === 'object') {
-      const nestedMessage =
-        typeof nested.message === 'string' ? nested.message :
-        typeof nested.reason === 'string' ? nested.reason :
-        undefined
-      if (nestedMessage) return nestedMessage.replace(/^Error:\s*/, '')
-    }
-
-    // Try toString if available
-    if (typeof err.toString === 'function') {
-      const str = err.toString()
-      if (str && str !== '[object Object]') return str
-    }
-
-    // Last resort: JSON stringify with error handling
-    try {
-      const json = JSON.stringify(err)
-      if (json && json !== '{}') return json
-    } catch {
-      // Ignore stringify errors
-    }
-  }
-
-  const str = String(error)
-  return (str && str !== '[object Object]') ? str : 'Unknown error (check console for details)'
+  const message = extractError(error).replace(/^Error:\s*/, '').trim()
+  return message || 'Unknown wallet or RPC error. Open the wallet extension, cancel pending requests, and retry.'
 }

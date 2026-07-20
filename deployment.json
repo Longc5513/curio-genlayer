@@ -3,7 +3,7 @@
   "network": "studionet",
   "contractAddress": "0x679737cCE4804439f2CF6d6082224A58658D0011",
   "studioImportUrl": "https://studio.genlayer.com/?import-contract=0x679737cCE4804439f2CF6d6082224A58658D0011",
-  "explorerBaseUrl": "https://genlayer-explorer.vercel.app",
+  "explorerBaseUrl": "https://explorer-studio.genlayer.com",
   "sourceContract": "contracts/curio_learning_bounties.py",
   "evidenceStatus": "Studio address is wired into the frontend; deployment transaction, imported-source verification, and positive GEN settlement evidence still require manual Studio verification",
   "frontendUsesSimulatedData": false,
@@ -12,6 +12,6 @@
   "contractSourceSha256": "2402c3f374fa1bb2899f53657f821f3d296c79a45359e334c9fbef8cac53b2a8",
   "sourceMatchStatus": "repository source restored from the deployment bundle used before this Studio address was supplied; independently verify the imported Studio source before final submission",
   "deploymentTransaction": "",
-  "explorerUrl": "https://genlayer-explorer.vercel.app",
+  "explorerUrl": "https://explorer-studio.genlayer.com",
   "liveApp": ""
 }

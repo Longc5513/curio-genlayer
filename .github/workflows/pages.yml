@@ -24,7 +24,7 @@ jobs:
     env:
       VITE_GENLAYER_CONTRACT_ADDRESS: ${{ vars.GENLAYER_CONTRACT_ADDRESS || '0x679737cCE4804439f2CF6d6082224A58658D0011' }}
       VITE_GENLAYER_NETWORK: ${{ vars.GENLAYER_NETWORK || 'studionet' }}
-      VITE_GENLAYER_EXPLORER_URL: ${{ vars.GENLAYER_EXPLORER_URL || 'https://genlayer-explorer.vercel.app' }}
+      VITE_GENLAYER_EXPLORER_URL: ${{ vars.GENLAYER_EXPLORER_URL || 'https://explorer-studio.genlayer.com' }}
       VITE_BASE_PATH: /${{ github.event.repository.name }}/
     steps:
       - uses: actions/checkout@v4

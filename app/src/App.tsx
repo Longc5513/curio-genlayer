@@ -7,6 +7,7 @@ import {
   connectWallet,
   contractAddress,
   getConnectedWallet,
+  ensureWalletNetwork,
   getContractHealth,
   listBounties,
   networkName,
@@ -75,12 +76,24 @@ export default function App() {
 
   async function handleConnect() {
     setTx({ phase: 'wallet', label: 'Waiting for wallet approval…' })
+    let connected: `0x${string}` | null = null
     try {
-      const connected = await connectWallet()
+      connected = await connectWallet()
+      // Keep the account visible even when the separate network-switch request fails.
       setAccount(connected)
-      setTx({ phase: 'success', label: 'Wallet connected' })
+      setTx({ phase: 'wallet', label: `Wallet connected · switching to ${networkName}…` })
+      await ensureWalletNetwork()
+      setTx({ phase: 'success', label: `Wallet connected to ${networkName}` })
     } catch (error) {
-      setTx({ phase: 'error', label: 'Wallet connection failed', error: cleanError(error) })
+      if (!connected) {
+        connected = await getConnectedWallet().catch(() => null)
+        if (connected) setAccount(connected)
+      }
+      setTx({
+        phase: 'error',
+        label: connected ? 'Wallet connected · GenLayer network setup failed' : 'Wallet connection failed',
+        error: cleanError(error),
+      })
     }
   }
 
@@ -178,7 +191,7 @@ export default function App() {
             onTransact={transact}
           />
         )}
-        {view === 'create' && <CreateView configured={configured && health.reachable} onTransact={transact} onDone={() => setView('market')} />}
+        {view === 'create' && <CreateView configured={configured && health.reachable} account={account} onConnect={handleConnect} onTransact={transact} onDone={() => setView('market')} />}
         {view === 'review' && <MyWorkView account={account} bounties={bounties} onSelect={(item) => { setSelected(item); setView('market') }} />}
         {view === 'about' && <AboutView />}
       </main>
@@ -341,8 +354,10 @@ function DetailBlock({ title, children }: { title: string; children: ReactNode }
   return <section className="detail-block"><h3>{title}</h3>{children}</section>
 }
 
-function CreateView({ configured, onTransact, onDone }: {
+function CreateView({ configured, account, onConnect, onTransact, onDone }: {
   configured: boolean
+  account: `0x${string}` | null
+  onConnect: () => Promise<void>
   onTransact: (label: string, fn: string, args: unknown[], value?: bigint) => Promise<void>
   onDone: () => void
 }) {
@@ -369,8 +384,13 @@ function CreateView({ configured, onTransact, onDone }: {
         <label>Reference URL <span>(optional)</span><input type="url" value={form.reference} onChange={(e: ChangeEvent<HTMLInputElement>) => update('reference', e.target.value)} placeholder="https://docs.example.com/reference" /></label>
         <label>GEN reward<input required inputMode="decimal" value={form.reward} onChange={(e: ChangeEvent<HTMLInputElement>) => update('reward', e.target.value)} /></label>
         {localError && <p className="form-error">{localError}</p>}
-        <button className="primary full" disabled={!configured}>Create bounty and escrow GEN</button>
+        {account ? (
+          <button className="primary full" type="submit" disabled={!configured}>Create bounty and escrow GEN</button>
+        ) : (
+          <button className="primary full" type="button" onClick={() => void onConnect()}>Connect wallet to continue</button>
+        )}
         {!configured && <small className="hint">Deploy and configure the contract before submitting.</small>}
+        {!account && <small className="hint">Your form stays filled while you approve the wallet connection.</small>}
       </form>
     </section>
   )

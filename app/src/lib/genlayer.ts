@@ -1,446 +1,185 @@
 import { createClient } from 'genlayer-js'
-import { localnet, studionet, testnetAsimov, testnetBradbury } from 'genlayer-js/chains'
-import { ExecutionResult, TransactionStatus } from 'genlayer-js/types'
-import type { CalldataEncodable, TransactionHash } from 'genlayer-js/types'
-import type { LearningBounty } from './types'
+import { studionet } from 'genlayer-js/chains'
+import type { TransactionHash } from 'genlayer-js/types'
+import type { CalldataEncodable } from 'genlayer-js/types'
 
 type Address = `0x${string}`
-export type NetworkName = 'localnet' | 'studionet' | 'testnetAsimov' | 'testnetBradbury'
 
-export interface Eip1193Provider {
-  request(args: { method: string; params?: readonly unknown[] | object }): Promise<unknown>
+const CONTRACT_ADDRESS = '0x668d5D34d9a58447410bb1f06B14496CE6Bb7D46' as Address
+const EXPLORER_BASE = 'https://explorer-studio.genlayer.com'
+
+export interface Company {
+  company_id: string; name: string; industry: string; description: string
+  website: string; contact_email: string; created_at: string; updated_at: string; is_active: boolean
+}
+export interface AdjudicationTask {
+  task_id: string; company_id: string; field: string; title: string; description: string
+  criteria: string; status: string; created_at: string; updated_at: string
+}
+export interface AdjudicationResult {
+  result_id: string; task_id: string; company_id: string; field: string
+  overall_score: number; criteria_scores: string; verdict: string
+  reasoning: string; recommendations: string; evaluator_notes: string; completed_at: string
+}
+export interface BatchJob {
+  batch_id: string; name: string; company_ids: string; field: string; criteria: string
+  status: string; total: number; completed: number; failed: number; created_at: string; completed_at: string
+}
+export interface ContractStats {
+  total_companies: number; total_tasks: number; total_results: number
+  total_batches: number; supported_fields: string[]
+}
+export interface ContractHealth {
+  configured: boolean; reachable: boolean; version: string; stats: ContractStats | null; error: string
+}
+export type TxPhase = 'idle' | 'wallet' | 'submitting' | 'consensus' | 'success' | 'error'
+export interface TxState { phase: TxPhase; label: string; hash?: string; error?: string }
+
+interface Eip1193Provider {
+  request(args: { method: string; params?: readonly unknown[] }): Promise<unknown>
   on?(event: string, listener: (...args: unknown[]) => void): void
   removeListener?(event: string, listener: (...args: unknown[]) => void): void
-  isMetaMask?: boolean
-  isRabby?: boolean
-  isCoinbaseWallet?: boolean
-  isBraveWallet?: boolean
-  providers?: Eip1193Provider[]
+  isMetaMask?: boolean; providers?: Eip1193Provider[]
 }
-
-interface Eip6963ProviderInfo {
-  uuid: string
-  name: string
-  icon: string
-  rdns: string
-}
-
-interface Eip6963ProviderDetail {
-  info: Eip6963ProviderInfo
-  provider: Eip1193Provider
-}
-
-export interface ContractStats {
-  bounty_count: number
-  total_escrowed_wei: string | number | bigint
-  total_paid_wei: string | number | bigint
-  total_refunded_wei: string | number | bigint
-  contract_balance_wei?: string | number | bigint
-  escrow_is_funded?: boolean
-}
-
-export interface ContractHealth {
-  configured: boolean
-  reachable: boolean
-  version: string
-  stats: ContractStats | null
-  error: string
-}
-
-export interface TransactionEvidence {
-  hash: TransactionHash
-  executionResult: string
-  emittedMessageCount: number
-  emittedValueWei: bigint
-  submittedValueWei: bigint
-}
-
-const DEFAULT_CONTRACT_ADDRESS = '0x679737cCE4804439f2CF6d6082224A58658D0011' as const
-const chainMap = { localnet, studionet, testnetAsimov, testnetBradbury } as const
-const configuredNetwork = import.meta.env.VITE_GENLAYER_NETWORK || 'studionet'
-
-export const networkName: NetworkName = Object.prototype.hasOwnProperty.call(chainMap, configuredNetwork)
-  ? (configuredNetwork as NetworkName)
-  : 'studionet'
-export const network = chainMap[networkName]
-export const contractAddress = (
-  import.meta.env.VITE_GENLAYER_CONTRACT_ADDRESS || DEFAULT_CONTRACT_ADDRESS
-) as Address
-const officialExplorerMap: Record<NetworkName, string> = {
-  localnet: 'http://localhost:8080',
-  studionet: 'https://explorer-studio.genlayer.com',
-  testnetAsimov: 'https://explorer-asimov.genlayer.com',
-  testnetBradbury: 'https://explorer-bradbury.genlayer.com',
-}
-export const explorerBase = import.meta.env.VITE_GENLAYER_EXPLORER_URL || officialExplorerMap[networkName]
-export const studioImportUrl = `https://studio.genlayer.com/?import-contract=${contractAddress}`
 
 let activeProvider: Eip1193Provider | null = null
-let providerDiscovery: Promise<Eip6963ProviderDetail[]> | null = null
+const isAddr = (v: string): v is Address => /^0x[a-fA-F0-9]{40}$/.test(v)
 
-function isAddress(value: string): value is Address {
-  return /^0x[a-fA-F0-9]{40}$/.test(value)
+function getProviders(): Eip1193Provider[] {
+  const eth = (window as any).ethereum
+  if (!eth) return []
+  return Array.isArray(eth.providers) ? [...new Set(eth.providers)] : [eth]
 }
 
-function requireContract(): Address {
-  if (!isAddress(contractAddress)) {
-    throw new Error('The GenLayer Intelligent Contract address is invalid.')
-  }
-  return contractAddress
-}
-
-function legacyProviders(): Eip1193Provider[] {
-  const injected = window.ethereum
-  if (!injected) return []
-  const candidates = Array.isArray(injected.providers) && injected.providers.length > 0
-    ? injected.providers
-    : [injected]
-  return [...new Set(candidates)]
-}
-
-function providerPriority(detail: Eip6963ProviderDetail): number {
-  const rdns = detail.info.rdns.toLowerCase()
-  if (rdns === 'io.metamask') return 100
-  if (rdns.includes('metamask')) return 90
-  if (rdns.includes('rabby')) return 80
-  if (rdns.includes('coinbase')) return 70
-  return 10
-}
-
-async function discoverEip6963Providers(): Promise<Eip6963ProviderDetail[]> {
-  if (providerDiscovery) return providerDiscovery
-  providerDiscovery = new Promise((resolve) => {
-    const found = new Map<string, Eip6963ProviderDetail>()
-    const onAnnounce = (event: Event) => {
-      const detail = (event as CustomEvent<Eip6963ProviderDetail>).detail
-      if (!detail?.provider || !detail.info?.uuid) return
-      found.set(detail.info.uuid, detail)
-    }
-    window.addEventListener('eip6963:announceProvider', onAnnounce as EventListener)
-    window.dispatchEvent(new Event('eip6963:requestProvider'))
-    window.setTimeout(() => {
-      window.removeEventListener('eip6963:announceProvider', onAnnounce as EventListener)
-      resolve([...found.values()].sort((a, b) => providerPriority(b) - providerPriority(a)))
-    }, 180)
-  })
-  return providerDiscovery
-}
-
-async function resolveWalletProvider(): Promise<Eip1193Provider | null> {
+async function getProvider(): Promise<Eip1193Provider | null> {
   if (activeProvider) return activeProvider
-
-  const announced = await discoverEip6963Providers()
-  if (announced.length > 0) {
-    activeProvider = announced[0].provider
-    return activeProvider
-  }
-
-  const legacy = legacyProviders()
-  activeProvider = legacy.find((provider) => provider.isMetaMask && !provider.isRabby) || legacy[0] || null
+  const p = getProviders()
+  activeProvider = p.find((x) => x.isMetaMask) || p[0] || null
   return activeProvider
 }
 
-export function getInjectedProvider(): Eip1193Provider | null {
-  if (activeProvider) return activeProvider
-  const legacy = legacyProviders()
-  return legacy.find((provider) => provider.isMetaMask && !provider.isRabby) || legacy[0] || null
-}
+export const readClient = createClient({ chain: studionet })
 
-function errorCode(error: unknown): number | undefined {
-  if (!error || typeof error !== 'object') return undefined
-  const object = error as Record<string, unknown>
-  if (typeof object.code === 'number') return object.code
-  const data = object.data
-  if (data && typeof data === 'object') {
-    const dataObject = data as Record<string, unknown>
-    if (typeof dataObject.code === 'number') return dataObject.code
-    const original = dataObject.originalError
-    if (original && typeof original === 'object' && typeof (original as Record<string, unknown>).code === 'number') {
-      return (original as Record<string, unknown>).code as number
-    }
-  }
-  const cause = object.cause
-  return cause && cause !== error ? errorCode(cause) : undefined
-}
-
-function errorMessage(error: unknown): string {
-  if (error instanceof Error && error.message) return error.message
-  if (!error || typeof error !== 'object') return String(error || 'Unknown wallet error')
-  const object = error as Record<string, unknown>
-  for (const key of ['shortMessage', 'message', 'details', 'reason'] as const) {
-    if (typeof object[key] === 'string' && object[key]) return object[key] as string
-  }
-  const data = object.data
-  if (data && data !== error) {
-    const nested = errorMessage(data)
-    if (nested && nested !== '[object Object]') return nested
-  }
-  const cause = object.cause
-  if (cause && cause !== error) {
-    const nested = errorMessage(cause)
-    if (nested && nested !== '[object Object]') return nested
-  }
-  return 'The wallet returned an unreadable RPC error. Open the wallet extension and retry the request.'
-}
-
-function walletError(prefix: string, error: unknown): Error {
-  const code = errorCode(error)
-  const message = errorMessage(error).replace(/^Error:\s*/, '')
-  if (code === 4001) return new Error(`${prefix}: request rejected in the wallet.`)
-  if (code === -32002) return new Error(`${prefix}: a wallet request is already pending. Open the wallet extension and complete it.`)
-  return new Error(`${prefix}${code !== undefined ? ` (code ${code})` : ''}: ${message}`)
-}
-
-function chainIdHex(): `0x${string}` {
-  return `0x${network.id.toString(16)}`
-}
-
-export async function ensureWalletNetwork(provider?: Eip1193Provider | null): Promise<void> {
-  const wallet = provider || await resolveWalletProvider()
-  if (!wallet) throw new Error('No EVM wallet was detected. Install MetaMask or another EIP-1193 wallet.')
-  activeProvider = wallet
-
-  const expected = chainIdHex().toLowerCase()
-  let current: string
-  try {
-    current = String(await wallet.request({ method: 'eth_chainId' })).toLowerCase()
-  } catch (error) {
-    throw walletError('Could not read the active wallet network', error)
-  }
-  if (current === expected) return
-
-  try {
-    await wallet.request({
-      method: 'wallet_switchEthereumChain',
-      params: [{ chainId: expected }],
-    })
-  } catch (switchError) {
-    const code = errorCode(switchError)
-    const text = errorMessage(switchError).toLowerCase()
-    const canAdd = code === 4902 || code === -32603 || code === -32601 || code === -32004
-      || text.includes('unknown chain') || text.includes('unrecognized chain') || text.includes('not added')
-    if (!canAdd) throw walletError(`Could not switch to ${network.name}`, switchError)
-
-    const explorer = network.blockExplorers?.default.url
-    try {
-      await wallet.request({
-        method: 'wallet_addEthereumChain',
-        params: [{
-          chainId: expected,
-          chainName: network.name,
-          rpcUrls: [...network.rpcUrls.default.http],
-          nativeCurrency: {
-            name: network.nativeCurrency.name,
-            symbol: network.nativeCurrency.symbol,
-            decimals: network.nativeCurrency.decimals,
-          },
-          ...(explorer ? { blockExplorerUrls: [explorer] } : {}),
-        }],
-      })
-    } catch (addError) {
-      const addText = errorMessage(addError).toLowerCase()
-      if (!addText.includes('already') && !addText.includes('exists')) {
-        throw walletError(`Could not add ${network.name} to the wallet`, addError)
-      }
-    }
-
-    try {
-      await wallet.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: expected }],
-      })
-    } catch (retryError) {
-      throw walletError(`Could not activate ${network.name}`, retryError)
-    }
-  }
-
-  const selected = String(await wallet.request({ method: 'eth_chainId' })).toLowerCase()
-  if (selected !== expected) {
-    throw new Error(`Wallet stayed on chain ${selected}; select ${network.name} (${expected}) in the wallet and retry.`)
-  }
+function errMsg(e: unknown): string {
+  if (e instanceof Error) return e.message
+  if (typeof e === 'string') return e
+  return 'Unknown error'
 }
 
 export async function connectWallet(): Promise<Address> {
-  const provider = await resolveWalletProvider()
-  if (!provider) throw new Error('No EVM wallet was detected. Install MetaMask or another EIP-1193 wallet.')
-  activeProvider = provider
-
-  let accounts: unknown
-  try {
-    accounts = await provider.request({ method: 'eth_requestAccounts' })
-  } catch (error) {
-    throw walletError('Wallet connection failed', error)
-  }
-
-  const account = Array.isArray(accounts) ? String(accounts[0] || '') : ''
-  if (!isAddress(account)) throw new Error('The wallet returned no valid EVM account.')
-  return account
+  const p = await getProvider()
+  if (!p) throw new Error('Install MetaMask')
+  const accs = await p.request({ method: 'eth_requestAccounts' })
+  const a = Array.isArray(accs) ? String(accs[0] || '') : ''
+  if (!isAddr(a)) throw new Error('No account')
+  return a
 }
 
 export async function getConnectedWallet(): Promise<Address | null> {
-  const provider = await resolveWalletProvider()
-  if (!provider) return null
+  const p = await getProvider()
+  if (!p) return null
   try {
-    const accounts = await provider.request({ method: 'eth_accounts' })
-    const account = Array.isArray(accounts) ? String(accounts[0] || '') : ''
-    return isAddress(account) ? account : null
+    const accs = await p.request({ method: 'eth_accounts' })
+    const a = Array.isArray(accs) ? String(accs[0] || '') : ''
+    return isAddr(a) ? a : null
+  } catch { return null }
+}
+
+export async function ensureWalletNetwork(): Promise<void> {
+  const p = await getProvider()
+  if (!p) throw new Error('No wallet')
+  const hex = `0x${studionet.id.toString(16)}`
+  const cur = String(await p.request({ method: 'eth_chainId' })).toLowerCase()
+  if (cur === hex.toLowerCase()) return
+  try {
+    await p.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: hex }] })
   } catch {
-    return null
+    await p.request({
+      method: 'wallet_addEthereumChain',
+      params: [{ chainId: hex, chainName: studionet.name, rpcUrls: studionet.rpcUrls.default.http, nativeCurrency: studionet.nativeCurrency }],
+    })
+    await p.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: hex }] })
   }
 }
 
-export function subscribeWallet(
-  onAccount: (account: Address | null) => void,
-  onChainChanged: () => void,
-): () => void {
-  const attached = new Set<Eip1193Provider>()
-  let disposed = false
-
-  const accountsChanged = (...args: unknown[]) => {
-    const accounts = Array.isArray(args[0]) ? args[0] : []
-    const account = String(accounts[0] || '')
-    onAccount(isAddress(account) ? account : null)
+export function subscribeWallet(onAcc: (a: Address | null) => void, onChain: () => void): () => void {
+  const p = activeProvider || getProviders()[0]
+  if (!p) return () => {}
+  const fn = (...args: unknown[]) => {
+    const accs = Array.isArray(args[0]) ? args[0] : []
+    onAcc(isAddr(String(accs[0] || '')) ? String(accs[0]) as Address : null)
   }
-  const chainChanged = () => onChainChanged()
-  const attach = (provider: Eip1193Provider | null) => {
-    if (!provider || disposed || attached.has(provider)) return
-    attached.add(provider)
-    provider.on?.('accountsChanged', accountsChanged)
-    provider.on?.('chainChanged', chainChanged)
-  }
-
-  for (const provider of legacyProviders()) attach(provider)
-  void resolveWalletProvider().then(attach).catch(() => undefined)
-
-  return () => {
-    disposed = true
-    for (const provider of attached) {
-      provider.removeListener?.('accountsChanged', accountsChanged)
-      provider.removeListener?.('chainChanged', chainChanged)
-    }
-    attached.clear()
-  }
-}
-
-export const readClient = createClient({ chain: network })
-
-function createWriteClient(account: Address, provider: Eip1193Provider) {
-  return createClient({ chain: network, account, provider })
-}
-
-export async function listBounties(): Promise<LearningBounty[]> {
-  const result = await readClient.readContract({
-    address: requireContract(),
-    functionName: 'list_bounties',
-    args: [],
-  })
-  return Array.isArray(result) ? (result as unknown as LearningBounty[]) : []
+  p.on?.('accountsChanged', fn)
+  p.on?.('chainChanged', () => onChain())
+  return () => { p.removeListener?.('accountsChanged', fn); p.removeListener?.('chainChanged', onChain) }
 }
 
 export async function getContractHealth(): Promise<ContractHealth> {
-  if (!isAddress(contractAddress)) {
-    return { configured: false, reachable: false, version: '', stats: null, error: 'Invalid contract address.' }
-  }
   try {
-    const [version, stats] = await Promise.all([
-      readClient.readContract({ address: contractAddress, functionName: 'get_contract_version', args: [] }),
-      readClient.readContract({ address: contractAddress, functionName: 'get_stats', args: [] }),
+    const [v, s] = await Promise.all([
+      readClient.readContract({ address: CONTRACT_ADDRESS, functionName: 'get_contract_version', args: [] }),
+      readClient.readContract({ address: CONTRACT_ADDRESS, functionName: 'get_stats', args: [] }),
     ])
-    return {
-      configured: true,
-      reachable: true,
-      version: String(version),
-      stats: stats && typeof stats === 'object' ? (stats as unknown as ContractStats) : null,
-      error: '',
-    }
-  } catch (error) {
-    return {
-      configured: true,
-      reachable: false,
-      version: '',
-      stats: null,
-      error: errorMessage(error),
-    }
-  }
+    return { configured: true, reachable: true, version: String(v), stats: s as unknown as ContractStats, error: '' }
+  } catch (e) { return { configured: true, reachable: false, version: '', stats: null, error: errMsg(e) } }
 }
 
-function readMessageValue(message: unknown): bigint {
-  if (!message || typeof message !== 'object') return 0n
-  const raw = (message as { value?: unknown }).value
-  if (typeof raw === 'bigint') return raw
-  if (typeof raw === 'number' && Number.isFinite(raw)) return BigInt(Math.trunc(raw))
-  if (typeof raw === 'string') {
-    try { return BigInt(raw) } catch { return 0n }
-  }
-  return 0n
+export async function listCompanies(): Promise<Company[]> {
+  const r = await readClient.readContract({ address: CONTRACT_ADDRESS, functionName: 'list_companies', args: [] })
+  return Array.isArray(r) ? r as unknown as Company[] : []
+}
+export async function listActiveCompanies(): Promise<Company[]> {
+  const r = await readClient.readContract({ address: CONTRACT_ADDRESS, functionName: 'list_active_companies', args: [] })
+  return Array.isArray(r) ? r as unknown as Company[] : []
+}
+export async function listCompanyTasks(cid: string): Promise<AdjudicationTask[]> {
+  const r = await readClient.readContract({ address: CONTRACT_ADDRESS, functionName: 'list_tasks', args: [cid] })
+  return Array.isArray(r) ? r as unknown as AdjudicationTask[] : []
+}
+export async function listCompanyResults(cid: string): Promise<AdjudicationResult[]> {
+  const r = await readClient.readContract({ address: CONTRACT_ADDRESS, functionName: 'list_results', args: [cid] })
+  return Array.isArray(r) ? r as unknown as AdjudicationResult[] : []
+}
+export async function listBatches(): Promise<BatchJob[]> {
+  const r = await readClient.readContract({ address: CONTRACT_ADDRESS, functionName: 'list_batches', args: [] })
+  return Array.isArray(r) ? r as unknown as BatchJob[] : []
+}
+export async function getSupportedFields(): Promise<string[]> {
+  const r = await readClient.readContract({ address: CONTRACT_ADDRESS, functionName: 'get_supported_fields', args: [] })
+  return Array.isArray(r) ? r as string[] : []
 }
 
-export async function sendContractCall(
-  account: Address,
-  functionName: string,
-  args: unknown[],
-  value: bigint = 0n,
-  onHash?: (hash: TransactionHash) => void,
-): Promise<TransactionEvidence> {
-  const provider = await resolveWalletProvider()
-  if (!provider) throw new Error('Wallet provider is unavailable. Connect MetaMask and retry.')
-  await ensureWalletNetwork(provider)
-
-  const accounts = await provider.request({ method: 'eth_accounts' })
-  const selectedAccount = Array.isArray(accounts) ? String(accounts[0] || '') : ''
-  if (!isAddress(selectedAccount)) throw new Error('The wallet is no longer connected. Reconnect it and retry.')
-  if (selectedAccount.toLowerCase() !== account.toLowerCase()) {
-    throw new Error(`The selected wallet account changed to ${selectedAccount}. Retry with the active account.`)
-  }
-
-  const client = createWriteClient(account, provider)
-  let hash: TransactionHash
-  try {
-    hash = (await client.writeContract({
-      address: requireContract(),
-      functionName,
-      args: args as CalldataEncodable[],
-      value,
-    })) as unknown as TransactionHash
-  } catch (error) {
-    throw walletError('Transaction signing failed', error)
-  }
+async function write(account: Address, fn: string, args: unknown[], onHash?: (h: string) => void): Promise<string> {
+  const p = await getProvider()
+  if (!p) throw new Error('Wallet not connected')
+  await ensureWalletNetwork()
+  const client = createClient({ chain: studionet, account, provider: p })
+  const hash = await client.writeContract({ address: CONTRACT_ADDRESS, functionName: fn, args: args as CalldataEncodable[] }) as unknown as TransactionHash
   onHash?.(hash)
-
-  const receipt = await readClient.waitForTransactionReceipt({
-    hash,
-    status: TransactionStatus.FINALIZED,
-  })
-  const executionResult = String(receipt.txExecutionResultName || ExecutionResult.NOT_VOTED)
-  if (executionResult !== ExecutionResult.FINISHED_WITH_RETURN) {
-    let traceMessage = ''
-    try {
-      const trace = await readClient.debugTraceTransaction({ hash })
-      traceMessage = errorMessage(trace.stderr || trace.return_data || '')
-    } catch {
-      // The receipt still gives the authoritative failed execution state.
-    }
-    throw new Error(`Contract execution failed (${executionResult}). ${traceMessage}`.trim())
-  }
-
-  let messages: unknown[] = []
-  try {
-    const transaction = await readClient.getTransaction({ hash })
-    messages = Array.isArray(transaction.messages) ? transaction.messages : []
-  } catch {
-    // Transaction evidence is supplementary; finalized execution is already confirmed.
-  }
-
-  return {
-    hash,
-    executionResult,
-    emittedMessageCount: messages.length,
-    emittedValueWei: messages.reduce<bigint>((sum, message) => sum + readMessageValue(message), 0n),
-    submittedValueWei: value,
-  }
+  await readClient.waitForTransactionReceipt({ hash })
+  return hash
 }
 
-export function transactionUrl(hash?: string): string | undefined {
-  if (!hash || !explorerBase) return undefined
-  return `${explorerBase.replace(/\/$/, '')}/tx/${hash}`
-}
+export const addCompany = (acc: Address, cid: string, name: string, industry: string, desc: string, web: string, email: string, onHash?: (h: string) => void) =>
+  write(acc, 'add_company', [cid, name, industry, desc, web, email], onHash)
+
+export const batchAddCompanies = (acc: Address, json: string, onHash?: (h: string) => void) =>
+  write(acc, 'batch_add_companies', [json], onHash)
+
+export const createTask = (acc: Address, tid: string, cid: string, field: string, title: string, desc: string, criteria: string, onHash?: (h: string) => void) =>
+  write(acc, 'create_task', [tid, cid, field, title, desc, criteria], onHash)
+
+export const batchCreateTasks = (acc: Address, name: string, cids: string, field: string, titleT: string, descT: string, criteria: string, onHash?: (h: string) => void) =>
+  write(acc, 'batch_create_tasks', [name, cids, field, titleT, descT, criteria], onHash)
+
+export const adjudicate = (acc: Address, tid: string, onHash?: (h: string) => void) =>
+  write(acc, 'adjudicate', [tid], onHash)
+
+export const batchAdjudicate = (acc: Address, bid: string, onHash?: (h: string) => void) =>
+  write(acc, 'batch_adjudicate', [bid], onHash)
+
+export const transactionUrl = (hash?: string) => hash ? `${EXPLORER_BASE}/tx/${hash}` : undefined
+export const shortAddress = (v?: string) => v ? `${v.slice(0, 6)}…${v.slice(-4)}` : 'N/A'
+export const contractAddress = CONTRACT_ADDRESS
+export const networkName = 'studionet'
+export const studioImportUrl = `https://studio.genlayer.com/?import-contract=${CONTRACT_ADDRESS}`

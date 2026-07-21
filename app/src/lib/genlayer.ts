@@ -9,7 +9,7 @@ type Address = `0x${string}`
 
 // ── Config ──────────────────────────────────────────────────────────
 
-const CONTRACT_ADDRESS = (import.meta.env.VITE_GENLAYER_CONTRACT_ADDRESS || '0xF347065566758aDd6F799E6E9ad9C6445f08954F') as Address
+const CONTRACT_ADDRESS = (import.meta.env.VITE_GENLAYER_CONTRACT_ADDRESS || '0x25Ab03cdC59C701A6D53973945c834f0B0E51C1B') as Address
 const EXPLORER_BASE = import.meta.env.VITE_GENLAYER_EXPLORER_URL || 'https://explorer-studio.genlayer.com'
 
 // ── EIP-1193 Wallet ─────────────────────────────────────────────────

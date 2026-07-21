@@ -3,40 +3,34 @@ import { callMiMo } from '../lib/mimo-ai'
 import './CurioBot.css'
 
 interface ChatMsg { role: 'user' | 'assistant'; content: string }
-
 type RobotMood = 'idle' | 'walking' | 'talking' | 'thinking' | 'waving' | 'excited'
+
+interface BountyFormData { id: string; title: string; brief: string; rubric: string; refUrl: string }
 
 interface RobotProps {
   onConnectWallet: () => Promise<void>
-  onCreateBounty: () => void
+  onCreateBounty: (data?: BountyFormData) => void
   onBrowseBounties: () => void
-  onSubmitSolution?: (url: string, note: string) => void
-  onAdjudicate?: (bountyId: string) => void
   account: string | null
 }
 
 export default function CurioBot({ onConnectWallet, onCreateBounty, onBrowseBounties, account }: RobotProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [mood, setMood] = useState<RobotMood>('idle')
-  const [messages, setMessages] = useState<ChatMsg[]>([
-    { role: 'assistant', content: account
-      ? `Hi! I'm CurioBot 🐱 Your wallet is connected (${account.slice(0,6)}...${account.slice(-4)}). I can help you create bounties, submit solutions, or navigate the platform. What would you like to do?`
-      : 'Hi! I\'m CurioBot 🐱 Your AI assistant! I can help you connect your wallet, create bounties, submit solutions, and more. Want me to connect your wallet first?'
-    }
-  ])
+  const [messages, setMessages] = useState<ChatMsg[]>([{
+    role: 'assistant',
+    content: account
+      ? `Hi! I'm CurioBot 🐱 Wallet connected (${account.slice(0,6)}...${account.slice(-4)}). Tell me what bounty you want to create and I'll fill the form for you!`
+      : 'Hi! I\'m CurioBot 🐱 Tell me what bounty you want to create and I\'ll fill the form for you! Or say "connect wallet" to get started.'
+  }])
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
-  const [position, setPosition] = useState({ x: 20, y: 80 })
-  const [isDragging, setIsDragging] = useState(false)
+  const [position] = useState({ x: 20, y: 80 })
   const [showBubble, setShowBubble] = useState(true)
-  const [awaitingAction, setAwaitingAction] = useState<string | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
-  const dragRef = useRef<{ startX: number; startY: number; posX: number; posY: number } | null>(null)
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
   useEffect(() => { if (showBubble) { const t = setTimeout(() => setShowBubble(false), 6000); return () => clearTimeout(t) } }, [showBubble])
-
-  // Idle animations
   useEffect(() => {
     if (isOpen) return
     const interval = setInterval(() => {
@@ -47,76 +41,76 @@ export default function CurioBot({ onConnectWallet, onCreateBounty, onBrowseBoun
     return () => clearInterval(interval)
   }, [isOpen])
 
-  // Drag
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (isOpen) return
-    setIsDragging(true)
-    dragRef.current = { startX: e.clientX, startY: e.clientY, posX: position.x, posY: position.y }
-  }, [isOpen, position])
-
-  useEffect(() => {
-    if (!isDragging) return
-    const handleMove = (e: MouseEvent) => {
-      if (!dragRef.current) return
-      setPosition({ x: dragRef.current.posX + (e.clientX - dragRef.current.startX), y: dragRef.current.posY + (e.clientY - dragRef.current.startY) })
-    }
-    const handleUp = () => { setIsDragging(false); dragRef.current = null }
-    window.addEventListener('mousemove', handleMove)
-    window.addEventListener('mouseup', handleUp)
-    return () => { window.removeEventListener('mousemove', handleMove); window.removeEventListener('mouseup', handleUp) }
-  }, [isDragging])
-
   const addBotMsg = (content: string) => {
     setMessages(prev => [...prev, { role: 'assistant', content }])
     setMood('talking')
     setTimeout(() => setMood('idle'), 3000)
   }
 
-  const doAction = async (action: string) => {
-    setMood('excited')
+  // Generate bounty data from user request using MiMo AI
+  const generateAndFillForm = async (userRequest: string) => {
     setIsTyping(true)
+    setMood('thinking')
+    addBotMsg('🤖 Đang tạo bounty cho bạn bằng MiMo AI…')
 
-    switch (action) {
-      case 'connect_wallet':
-        addBotMsg('🔗 Connecting your wallet now… Please approve the connection in MetaMask!')
-        try {
-          await onConnectWallet()
-          addBotMsg('✅ Wallet connected successfully! You can now create bounties and submit solutions. What would you like to do next?')
-        } catch (e) {
-          addBotMsg('❌ Connection failed. Make sure MetaMask is installed and try again. Click "Connect Wallet" in the sidebar if needed.')
+    try {
+      const result = await callMiMo([
+        { role: 'system', content: `You are a bounty creation assistant. Generate bounty form data based on the user's request.
+Return ONLY valid JSON with these fields:
+- "id": slug format (lowercase, hyphens, 3-30 chars, e.g. "python-async-tutorial")
+- "title": clear title (10-100 chars)
+- "brief": detailed description of what's needed (30-500 chars)
+- "rubric": scoring criteria with point allocations (30-500 chars)
+- "refUrl": a relevant reference URL (https://...) or empty string
+
+Make the brief and rubric specific and actionable. The rubric should have clear scoring criteria.` },
+        { role: 'user', content: userRequest }
+      ], 500)
+
+      // Parse the AI response
+      let data: BountyFormData
+      try {
+        const cleaned = result.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+        const parsed = JSON.parse(cleaned)
+        data = {
+          id: parsed.id || `bounty-${Date.now().toString(36)}`,
+          title: parsed.title || 'Untitled Bounty',
+          brief: parsed.brief || '',
+          rubric: parsed.rubric || '',
+          refUrl: parsed.refUrl || '',
         }
-        break
-
-      case 'create_bounty':
-        if (!account) {
-          addBotMsg('🔗 You need to connect your wallet first! Let me do that for you…')
-          await doAction('connect_wallet')
-          return
+      } catch {
+        // If JSON parse fails, create from text
+        data = {
+          id: `bounty-${Date.now().toString(36)}`,
+          title: userRequest.slice(0, 100),
+          brief: result.slice(0, 500),
+          rubric: 'Accuracy 30pts, Completeness 25pts, Clarity 25pts, Examples 20pts',
+          refUrl: '',
         }
-        addBotMsg('✨ Taking you to the Create Bounty page! I\'ll help you fill in the details using AI.')
-        onCreateBounty()
-        break
+      }
 
-      case 'browse_bounties':
-        addBotMsg('🔍 Showing all available bounties! You can filter by status or sort by reward.')
-        onBrowseBounties()
-        break
+      // Show what was generated
+      addBotMsg(`✅ Đã tạo xong! Đây là thông tin bounty:
 
-      case 'how_it_works':
-        addBotMsg(`📖 Here's how Curio works:\n\n1️⃣ **Create Bounty** — Escrow GEN and describe what you need\n2️⃣ **Submit Solution** — Contributors submit their work URL\n3️⃣ **Adjudicate** — GenLayer AI validators evaluate the submission\n4️⃣ **Get Paid** — If accepted, contributor receives GEN automatically\n\nThe whole process is powered by GenLayer consensus — 5 AI validators independently evaluate each submission!`)
-        break
+📄 **${data.title}**
+📝 ${data.brief.slice(0, 150)}${data.brief.length > 150 ? '…' : ''}
+📏 ${data.rubric.slice(0, 100)}${data.rubric.length > 100 ? '…' : ''}
 
-      case 'check_wallet':
-        if (account) {
-          addBotMsg(`✅ Your wallet is connected: ${account.slice(0,6)}...${account.slice(-4)}\n\nYou can create bounties, submit solutions, and receive payments!`)
-        } else {
-          addBotMsg('❌ No wallet connected. Let me connect it for you…')
-          await doAction('connect_wallet')
-        }
-        break
+Đang chuyển bạn sang trang Create Bounty với form đã điền sẵn…`)
+
+      // Pass data to Create Bounty page
+      setTimeout(() => {
+        onCreateBounty(data)
+      }, 1500)
+
+    } catch (e) {
+      addBotMsg('❌ Không tạo được bounty. Để tôi chuyển bạn sang trang Create Bounty để tự điền nhé!')
+      setTimeout(() => onCreateBounty(), 1000)
+    } finally {
+      setIsTyping(false)
+      setMood('idle')
     }
-    setIsTyping(false)
-    setMood('idle')
   }
 
   const sendMessage = async (text: string) => {
@@ -129,89 +123,84 @@ export default function CurioBot({ onConnectWallet, onCreateBounty, onBrowseBoun
 
     const lower = text.toLowerCase()
 
-    // Direct action detection
-    if ((lower.includes('connect') && lower.includes('wallet')) || lower.includes('kết nối ví') || lower.includes('ket noi vi')) {
-      await doAction('connect_wallet')
-      setIsTyping(false)
-      return
+    // Direct actions
+    if (lower.includes('connect') && (lower.includes('wallet') || lower.includes('ví'))) {
+      addBotMsg('🔗 Connecting wallet… Please approve in MetaMask!')
+      try { await onConnectWallet(); addBotMsg('✅ Wallet connected! Now tell me what bounty you want to create.') }
+      catch { addBotMsg('❌ Connection failed. Make sure MetaMask is installed.') }
+      setIsTyping(false); setMood('idle'); return
     }
-    if ((lower.includes('create') && lower.includes('bounty')) || lower.includes('tạo bounty') || lower.includes('tao bounty')) {
-      await doAction('create_bounty')
-      setIsTyping(false)
-      return
+
+    if (lower.includes('browse') || lower.includes('xem bounty') || lower.includes('danh sách')) {
+      addBotMsg('🔍 Showing all bounties!')
+      onBrowseBounties()
+      setIsTyping(false); setMood('idle'); return
     }
-    if (lower.includes('browse') || (lower.includes('find') && lower.includes('bounty')) || lower.includes('xem bounty')) {
-      await doAction('browse_bounties')
-      setIsTyping(false)
-      return
+
+    if (lower.includes('how') && (lower.includes('work') || lower.includes('use')) || lower.includes('hướng dẫn')) {
+      addBotMsg(`📖 Curio hoạt động như sau:
+1️⃣ Tạo Bounty — Escrow GEN + mô tả yêu cầu
+2️⃣ Submit Solution — Contributor gửi URL bài làm
+3️⃣ Adjudicate — AI validators GenLayer đánh giá
+4️⃣ Nhận GEN — Nếu accept, contributor được trả tiền
+
+Bạn muốn tạo bounty không? Chỉ cần nói cho tôi biết bạn cần gì!`)
+      setIsTyping(false); setMood('idle'); return
     }
-    if (lower.includes('how') && (lower.includes('work') || lower.includes('use')) || lower.includes('hướng dẫn') || lower.includes('huong dan')) {
-      await doAction('how_it_works')
-      setIsTyping(false)
-      return
+
+    // Check if user wants to create/fill a bounty
+    if (lower.includes('tạo') || lower.includes('create') || lower.includes('điền') || lower.includes('fill') || lower.includes('làm') || lower.includes('viết')) {
+      // Check if it's a specific request or just "create bounty"
+      if (lower.length > 20 || !lower.match(/^(create|tạo)\s*(bounty)?$/)) {
+        // User has a specific request - generate and fill
+        await generateAndFillForm(text)
+        return
+      }
+      // Just "create bounty" - ask what they want
+      addBotMsg('✨ Bạn muốn tạo bounty về chủ đề gì? Ví dụ:\n\n• "Viết tutorial về Python async"\n• "Tạo guide về Docker cho microservices"\n• "Bài viết về blockchain basics"\n\nNói cho tôi biết, tôi sẽ điền form cho bạn!')
+      setIsTyping(false); setMood('idle'); return
     }
-    if (lower.includes('wallet') || lower.includes('ví')) {
-      await doAction('check_wallet')
-      setIsTyping(false)
+
+    // Default: treat as bounty creation request if it's descriptive enough
+    if (text.length > 20 && !lower.includes('xin chào') && !lower.includes('hello')) {
+      await generateAndFillForm(text)
       return
     }
 
-    // MiMo AI response
+    // General chat
     try {
-      const ctx = account
-        ? `User wallet: ${account.slice(0,6)}...${account.slice(-4)} (connected).`
-        : 'User wallet: NOT connected. Suggest connecting first.'
-      
+      const ctx = account ? `Wallet: ${account.slice(0,6)}...${account.slice(-4)} (connected)` : 'Wallet: NOT connected'
       const result = await callMiMo([
-        { role: 'system', content: `You are CurioBot, a cute robot cat AI assistant for Curio Learning Bounties on GenLayer blockchain.
-Help users create bounties, submit solutions, understand adjudication, connect wallets.
-Be concise, friendly, use emojis. Keep under 120 words.
-Context: ${ctx}
-Actions available: connect wallet, create bounty, browse bounties, how it works.
-If user asks to do something, suggest the action clearly.` },
-        ...messages.slice(-6),
-        userMsg,
+        { role: 'system', content: `You are CurioBot 🐱, a cute AI assistant for Curio Learning Bounties on GenLayer.
+Help users create bounties. When they describe what they need, generate the form data.
+Be concise, friendly, use emojis. Reply in the same language as the user.
+Context: ${ctx}` },
+        ...messages.slice(-6), userMsg,
       ], 250)
-
       addBotMsg(result)
     } catch {
-      addBotMsg('Oops, my brain glitched! 🤕 Try asking me to connect wallet, create bounty, or browse bounties.')
+      addBotMsg('Oops! 🤕 Tell me what bounty you want to create and I\'ll fill the form for you!')
     } finally {
-      setIsTyping(false)
+      setIsTyping(false); setMood('idle')
     }
   }
 
-  const quickActions = account
-    ? [
-        { label: '✨ Create Bounty', action: () => sendMessage('Create a bounty') },
-        { label: '🔍 Browse Bounties', action: () => sendMessage('Browse bounties') },
-        { label: '📖 How it works?', action: () => sendMessage('How does this work?') },
-        { label: '💰 Check Wallet', action: () => sendMessage('Check my wallet') },
-      ]
-    : [
-        { label: '🔗 Connect Wallet', action: () => doAction('connect_wallet') },
-        { label: '📖 How it works?', action: () => sendMessage('How does this work?') },
-        { label: '🔍 Browse Bounties', action: () => doAction('browse_bounties') },
-      ]
+  const quickActions = [
+    { label: '✨ Tạo Bounty', action: () => sendMessage('Tôi muốn tạo bounty') },
+    { label: '🔍 Browse', action: () => sendMessage('Xem danh sách bounty') },
+    { label: '📖 Hướng dẫn', action: () => sendMessage('Hướng dẫn sử dụng') },
+    ...(account ? [{ label: '💰 Ví', action: () => sendMessage('Kiểm tra ví') }] : [{ label: '🔗 Kết nối ví', action: () => sendMessage('Kết nối ví') }]),
+  ]
 
   return (
     <>
-      {/* Robot Character */}
-      <div
-        className={`curio-bot ${mood} ${isOpen ? 'chat-open' : ''}`}
+      <div className={`curio-bot ${mood} ${isOpen ? 'chat-open' : ''}`}
         style={{ right: position.x, bottom: position.y }}
-        onClick={() => { if (!isDragging) { setIsOpen(!isOpen); setShowBubble(false) } }}
-        onMouseDown={handleMouseDown}
-      >
+        onClick={() => { setIsOpen(!isOpen); setShowBubble(false) }}>
         <img src="/curiobot.png" alt="CurioBot" className="bot-img" />
-        {showBubble && !isOpen && (
-          <div className="bot-bubble">
-            {account ? 'Click me to chat! 🐱' : 'Click me to connect wallet! 🔗'}
-          </div>
-        )}
+        {showBubble && !isOpen && <div className="bot-bubble">{account ? 'Muốn tạo bounty? Click! 🐱' : 'Click tôi để bắt đầu! 🔗'}</div>}
       </div>
 
-      {/* Chat Panel */}
       {isOpen && (
         <div className="bot-chat" style={{ right: position.x, bottom: position.y + 170 }}>
           <div className="bot-chat-header">
@@ -223,11 +212,10 @@ If user asks to do something, suggest the action clearly.` },
             <button className="bot-chat-close" onClick={() => setIsOpen(false)}>×</button>
           </div>
 
-          {/* Action Banner */}
           {!account && (
-            <div className="bot-action-banner" onClick={() => doAction('connect_wallet')}>
-              <span>🔗 Connect your wallet to get started</span>
-              <button className="bot-action-btn">Connect Now</button>
+            <div className="bot-action-banner" onClick={() => sendMessage('Kết nối ví')}>
+              <span>🔗 Kết nối ví để bắt đầu</span>
+              <button className="bot-action-btn">Kết nối</button>
             </div>
           )}
 
@@ -241,26 +229,20 @@ If user asks to do something, suggest the action clearly.` },
             {isTyping && (
               <div className="bot-msg assistant">
                 <span className="bot-msg-avatar"><img src="/curiobot-reviewer-avatar.png" alt="Bot" className="bot-msg-img" /></span>
-                <div className="bot-msg-content typing">
-                  <span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" />
-                </div>
+                <div className="bot-msg-content typing"><span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" /></div>
               </div>
             )}
             <div ref={chatEndRef} />
           </div>
 
           <div className="bot-quick-actions">
-            {quickActions.map((qa, i) => (
-              <button key={i} className="bot-quick-btn" onClick={qa.action}>{qa.label}</button>
-            ))}
+            {quickActions.map((qa, i) => <button key={i} className="bot-quick-btn" onClick={qa.action}>{qa.label}</button>)}
           </div>
 
           <div className="bot-chat-input">
-            <input
-              type="text" value={input} onChange={e => setInput(e.target.value)}
+            <input type="text" value={input} onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') sendMessage(input) }}
-              placeholder="Ask me anything…"
-            />
+              placeholder="Mô tả bounty bạn muốn tạo…" />
             <button onClick={() => sendMessage(input)} disabled={isTyping}>➤</button>
           </div>
         </div>

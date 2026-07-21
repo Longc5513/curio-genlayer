@@ -422,12 +422,12 @@ Decision policy:
             bounty.status = "paid"
             self.total_escrowed_wei -= bounty.reward_wei
             self.total_paid_wei += bounty.reward_wei
-            _Recipient(bounty.contributor).emit_transfer(value=bounty.reward_wei)
+            # On studionet, token transfers are not supported — skip emit_transfer
         elif bounty.verdict == "reject":
             bounty.status = "refunded"
             self.total_escrowed_wei -= bounty.reward_wei
             self.total_refunded_wei += bounty.reward_wei
-            _Recipient(bounty.requester).emit_transfer(value=bounty.reward_wei)
+            # On studionet, token transfers are not supported — skip emit_transfer
         else:
             bounty.status = "more_info"
 
@@ -447,7 +447,7 @@ Decision policy:
         bounty.updated_at = gl.message_raw["datetime"]
         self.total_escrowed_wei -= bounty.reward_wei
         self.total_refunded_wei += bounty.reward_wei
-        _Recipient(bounty.requester).emit_transfer(value=bounty.reward_wei)
+        # On studionet, token transfers are not supported — skip emit_transfer
 
     @gl.public.view
     def get_bounty(self, bounty_id: str) -> dict:

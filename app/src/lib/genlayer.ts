@@ -48,7 +48,7 @@ const isAddr = (v: string): v is Address => /^0x[a-fA-F0-9]{40}$/.test(v)
 function getProviders(): Eip1193Provider[] {
   const eth = (window as any).ethereum
   if (!eth) return []
-  return Array.isArray(eth.providers) ? [...new Set(eth.providers)] : [eth]
+  return Array.isArray(eth.providers) ? [...new Set(eth.providers)] as Eip1193Provider[] : [eth]
 }
 
 async function getProvider(): Promise<Eip1193Provider | null> {
@@ -154,7 +154,7 @@ async function write(account: Address, fn: string, args: unknown[], onHash?: (h:
   if (!p) throw new Error('Wallet not connected')
   await ensureWalletNetwork()
   const client = createClient({ chain: studionet, account, provider: p })
-  const hash = await client.writeContract({ address: CONTRACT_ADDRESS, functionName: fn, args: args as CalldataEncodable[] }) as unknown as TransactionHash
+  const hash = await client.writeContract({ address: CONTRACT_ADDRESS, functionName: fn, args: args as CalldataEncodable[], value: 0n }) as unknown as TransactionHash
   onHash?.(hash)
   await readClient.waitForTransactionReceipt({ hash })
   return hash

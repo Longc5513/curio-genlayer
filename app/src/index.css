@@ -424,6 +424,11 @@ main { padding: 28px 36px; overflow-y: auto; max-height: 100vh; }
 .bounty-status-pill.sm { font-size: 10px; padding: 2px 8px; }
 .empty-sm { color: var(--muted); font-size: 13px; padding: 16px 0; text-align: center; }
 
+/* ── Pagination ─────────────────────────────────────── */
+
+.pagination { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 20px 0; }
+.page-info { font-size: 13px; color: var(--muted); }
+
 /* ── AI Features ────────────────────────────────────── */
 
 .btn.ai { background: rgba(188,140,255,.12); color: var(--purple); border-color: rgba(188,140,255,.3); }

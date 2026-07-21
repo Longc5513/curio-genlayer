@@ -423,3 +423,11 @@ main { padding: 28px 36px; overflow-y: auto; max-height: 100vh; }
 .top-bounty-title { flex: 1; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bounty-status-pill.sm { font-size: 10px; padding: 2px 8px; }
 .empty-sm { color: var(--muted); font-size: 13px; padding: 16px 0; text-align: center; }
+
+/* ── View containers ────────────────────────────────── */
+
+.dashboard-view {}
+.browse-view {}
+.my-view { max-width: 860px; }
+.create-view { max-width: 680px; }
+.topbar-left { display: flex; align-items: center; gap: 12px; }

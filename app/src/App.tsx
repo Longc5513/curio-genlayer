@@ -132,8 +132,12 @@ export default function App() {
         const b = await listBounties()
         setBounties(b)
         if (account) {
-          const [r, c] = await Promise.all([listRequesterBounties(account), listContributorBounties(account)])
-          setMyRequester(r); setMyContributor(c)
+          // Filter by connected account as primary method
+          const addr = account.toLowerCase()
+          const requester = b.filter(bounty => bounty.requester?.toLowerCase() === addr)
+          const contributor = b.filter(bounty => bounty.contributor?.toLowerCase() === addr)
+          setMyRequester(requester)
+          setMyContributor(contributor)
         }
       }
     } catch (e) { console.error(e) }
@@ -148,12 +152,15 @@ export default function App() {
 
   const txDismiss = () => setTx({ phase: 'idle', label: '' })
 
-  const withTx = async (label: string, fn: (onHash: (h: string) => void) => Promise<string | void>) => {
+  const withTx = async (label: string, fn: (onHash: (h: string) => void) => Promise<string | void>, activityType?: ActivityItem['type'], bountyId?: string) => {
     if (!account) return setTx({ phase: 'error', label: 'Connect wallet first' })
     setTx({ phase: 'submitting', label })
     try {
       await fn((h) => setTx({ phase: 'consensus', label: `${label} — confirming on-chain…`, hash: h }))
       setTx({ phase: 'success', label: `${label} — done!` })
+      if (activityType && bountyId) addActivity(activityType, bountyId, `${label} succeeded`)
+      // Wait for blockchain to sync
+      await new Promise(r => setTimeout(r, 2000))
       await refresh()
     } catch (e) { setTx({ phase: 'error', label: `${label} failed`, error: cleanError(e) }) }
   }
@@ -205,7 +212,7 @@ export default function App() {
           <h4>By Status</h4>
           {Object.entries(STATUS_META).map(([key, meta]) => (
             <button key={key} className="filter-link" onClick={() => { setFilterStatus(key); nav('browse') }}>
-              {meta.icon} {meta.label} <span className="filter-count">{statusCounts[key]||0}</span>
+              {meta.icon} {meta.label}{' '}<span className="filter-count">{statusCounts[key]||0}</span>
             </button>
           ))}
           <button className="filter-link" onClick={() => { setFilterStatus('all'); nav('browse') }}>📋 All</button>
@@ -517,7 +524,12 @@ function BountyDetailView({ bounty, account, activityFeed, addActivity, onRefres
         {canSubmit && showSubmit && (
           <SubmitForm bounty={bounty} onSubmit={onSubmit} onCancel={() => setShowSubmit(false)} />
         )}
-        {canAdjudicate && <button className="btn primary" onClick={onAdjudicate}>⚖️ Run Adjudication</button>}
+        {canAdjudicate && (
+          <div className="adj-prompt">
+            <div className="adj-prompt-text">⚖️ Solution submitted! Run AI adjudication to evaluate it.</div>
+            <button className="btn primary lg" onClick={onAdjudicate}>⚖️ Run Adjudication Now</button>
+          </div>
+        )}
         {canCancel && <button className="btn danger" onClick={onCancel}>❌ Cancel & Refund</button>}
         <button className="btn secondary" onClick={() => void onRefresh()}>🔄 Refresh</button>
       </div>

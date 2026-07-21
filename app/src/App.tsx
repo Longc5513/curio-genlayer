@@ -359,7 +359,23 @@ export default function App() {
         )}
       </main>
 
-      <CurioBot account={account} onConnectWallet={handleConnect} onCreateBounty={botCreateBounty} onBrowseBounties={() => nav('browse')} />
+      <CurioBot
+        account={account}
+        onConnectWallet={handleConnect}
+        onCreateBounty={botCreateBounty}
+        onBrowseBounties={() => nav('browse')}
+        onAdjudicate={async (bountyId: string) => {
+          if (!account) return
+          await adjudicate(account, bountyId, (h) => setTx({ phase: 'consensus', label: 'AI adjudication…', hash: h }))
+          setTx({ phase: 'success', label: 'Adjudication complete!' })
+          await new Promise(r => setTimeout(r, 2000))
+          await refresh()
+        }}
+        onViewBounty={async (bountyId: string) => {
+          try { const b = await getBounty(bountyId); setSelected(b); setView('bounty') } catch { /* ignore */ }
+        }}
+        bounties={bounties}
+      />
     </div>
   )
 }

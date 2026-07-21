@@ -5,8 +5,8 @@
 // - Summarize content
 
 const MIMO_API_URL = 'https://api.xiaomimimo.com/v1/chat/completions'
-const MIMO_API_KEY = 'sk-swtqelpoka87mlbi0ry6k2ky25x4rbcfi8l0f1g0rtv51pr3'
-const MIMO_MODEL = 'MiMo'
+const MIMO_API_KEY = import.meta.env.VITE_MIMO_API_KEY || ''
+const MIMO_MODEL = 'mimo-v2.5-pro'
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant'

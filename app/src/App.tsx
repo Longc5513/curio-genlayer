@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
 import { shortAddr, weiToGen, scoreColor, verdictColor, cleanError, timeAgo, formatNumber, truncate } from './lib/format'
 import { generateBountyBrief, checkSubmissionQuality, improveDescription } from './lib/mimo-ai'
+import CurioBot from './components/CurioBot'
 import {
   connectWallet, getConnectedWallet, subscribeWallet,
   getContractHealth, listBounties, getBounty, listRequesterBounties, listContributorBounties,
@@ -393,6 +394,14 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* CurioBot AI Assistant */}
+      <CurioBot
+        account={account}
+        onConnectWallet={handleConnect}
+        onCreateBounty={() => nav('create')}
+        onBrowseBounties={() => nav('browse')}
+      />
     </div>
   )
 }

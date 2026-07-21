@@ -495,3 +495,17 @@
     height: 60vh;
   }
 }
+
+/* ── Adjudge buttons inside chat ────── */
+.bot-msg-actions { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.bot-msg-action-btn { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s; border: 1px solid var(--border); background: var(--surface3); color: var(--text); text-align: left; width: 100%; }
+.bot-msg-action-btn:hover { border-color: var(--border2); background: var(--surface2); }
+.bot-msg-action-btn.primary { background: rgba(63,185,80,.1); border-color: rgba(63,185,80,.3); color: var(--green); }
+.bot-msg-action-btn.primary:hover { background: rgba(63,185,80,.2); }
+.bot-msg-action-btn.adjudge { background: rgba(240,136,62,.1); border-color: rgba(240,136,62,.3); color: var(--orange); }
+.bot-msg-action-btn.adjudge:hover { background: rgba(240,136,62,.2); border-color: rgba(240,136,62,.5); }
+
+/* ── Adjudge spinner ────────────────── */
+.adjudge-spinner { display: flex; align-items: center; gap: 10px; }
+.adjudge-spinner-icon { font-size: 24px; animation: adjudge-spin 1.5s ease-in-out infinite; }
+@keyframes adjudge-spin { 0% { transform: rotate(0deg); } 25% { transform: rotate(-15deg); } 75% { transform: rotate(15deg); } 100% { transform: rotate(0deg); } }

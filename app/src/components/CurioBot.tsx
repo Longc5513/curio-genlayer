@@ -2,10 +2,11 @@ import { useState, useRef, useEffect } from 'react'
 import { callMiMo } from '../lib/mimo-ai'
 import './CurioBot.css'
 
-interface ChatMsg { role: 'user' | 'assistant'; content: string }
+interface ChatMsg { role: 'user' | 'assistant'; content: string; actions?: ChatAction[] }
+interface ChatAction { label: string; action: () => void; style?: string }
 type RobotMood = 'idle' | 'walking' | 'talking' | 'thinking' | 'waving' | 'excited'
 interface BountyFormData { id: string; title: string; brief: string; rubric: string; refUrl: string }
-interface BountyInfo { bounty_id: string; title: string; status: string; quality_score: number; verdict: string; reward_wei: number }
+interface BountyInfo { bounty_id: string; title: string; status: string; quality_score: number; verdict: string; reward_wei: number; brief: string; rubric: string; submission_url: string }
 
 interface RobotProps {
   onConnectWallet: () => Promise<void>
@@ -23,12 +24,13 @@ export default function CurioBot({ onConnectWallet, onCreateBounty, onBrowseBoun
   const [messages, setMessages] = useState<ChatMsg[]>([{
     role: 'assistant',
     content: account
-      ? `Hi! I'm CurioBot 🐱 Wallet connected (${account.slice(0,6)}...${account.slice(-4)}). I can:\n\n• **Create bounties** — describe what you need\n• **Check bounties** — show status and details\n• **Adjudicate** — run AI evaluation on submitted bounties\n• **Browse** — list all bounties\n\nWhat would you like to do?`
+      ? `Hi! I'm CurioBot 🐱 I can:\n\n• **Create bounties** — describe what you need\n• **Check status** — view all bounties\n• **Adjudge** — run AI evaluation and pick winner\n• **Browse** — list all bounties\n\nWhat would you like to do?`
       : 'Hi! I\'m CurioBot 🐱 I can create bounties, check status, and run AI adjudication. Connect your wallet or describe a bounty to get started!'
   }])
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [showBubble, setShowBubble] = useState(true)
+  const [adjudicating, setAdjudicating] = useState<string | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
@@ -43,18 +45,16 @@ export default function CurioBot({ onConnectWallet, onCreateBounty, onBrowseBoun
     return () => clearInterval(interval)
   }, [isOpen])
 
-  const addBotMsg = (content: string) => {
-    setMessages(prev => [...prev, { role: 'assistant', content }])
+  const addBotMsg = (content: string, actions?: ChatAction[]) => {
+    setMessages(prev => [...prev, { role: 'assistant', content, actions }])
     setMood('talking')
     setTimeout(() => setMood('idle'), 3000)
   }
 
   // ── Generate bounty from user request ──
   const generateAndFill = async (userText: string) => {
-    setIsTyping(true)
-    setMood('thinking')
+    setIsTyping(true); setMood('thinking')
     addBotMsg('🤖 Analyzing your request and generating bounty…')
-
     try {
       const result = await callMiMo([
         { role: 'system', content: `You are a bounty form filler for Curio on GenLayer blockchain.
@@ -69,7 +69,6 @@ Return ONLY valid JSON (no markdown): {"id":"slug","title":"title","brief":"desc
 - If user gives no topic, create a reasonable example` },
         { role: 'user', content: userText }
       ], 800)
-
       let data: BountyFormData
       try {
         const jsonMatch = result.match(/\{[\s\S]*?\}/)
@@ -83,47 +82,49 @@ Return ONLY valid JSON (no markdown): {"id":"slug","title":"title","brief":"desc
           refUrl: String(parsed.refUrl || ''),
         }
       } catch {
-        data = {
-          id: `bounty-${Date.now().toString(36)}`,
-          title: userText.slice(0, 80) || 'New Learning Bounty',
-          brief: result.slice(0, 500) || 'Describe your deliverable here.',
-          rubric: 'Accuracy 30pts, Completeness 25pts, Clarity 25pts, Examples 20pts',
-          refUrl: '',
-        }
+        data = { id: `bounty-${Date.now().toString(36)}`, title: userText.slice(0, 80) || 'New Bounty', brief: result.slice(0, 500), rubric: 'Accuracy 30pts, Completeness 25pts, Clarity 25pts, Examples 20pts', refUrl: '' }
       }
-
-      addBotMsg(`✅ Done! Form pre-filled:\n\n📄 **${data.title}**\n📝 ${data.brief.slice(0, 150)}${data.brief.length > 150 ? '…' : ''}\n📏 ${data.rubric.slice(0, 100)}…\n\nTaking you to Create Bounty…`)
+      addBotMsg(`✅ Done! Form pre-filled:\n\n📄 **${data.title}**\n📝 ${data.brief.slice(0, 150)}…\n\nTaking you to Create Bounty…`)
       setTimeout(() => onCreateBounty(data), 1500)
     } catch {
       addBotMsg('⚠️ Could not generate. Taking you to Create Bounty to fill manually.')
       setTimeout(() => onCreateBounty(), 1000)
-    } finally {
-      setIsTyping(false)
-      setMood('idle')
-    }
+    } finally { setIsTyping(false); setMood('idle') }
   }
 
-  // ── Adjudicate a bounty ──
-  const runAdjudicate = async (bountyId: string) => {
-    if (!account) {
-      addBotMsg('🔗 Connect your wallet first to run adjudication.')
-      return
-    }
-    addBotMsg(`⚖️ Running AI adjudication on **${bountyId}**…\n\nGenLayer validators will evaluate the submission against the rubric.`)
+  // ── Run adjudication on a specific bounty ──
+  const runAdjudge = async (bountyId: string, bountyTitle: string) => {
+    if (!account) { addBotMsg('🔗 Connect your wallet first.'); return }
+    setAdjudicating(bountyId)
+    addBotMsg(`⚖️ **Running AI Adjudication**\n\nBounty: **${bountyTitle}**\n\n5 GenLayer validators are evaluating the submission against the rubric. This may take a moment…`)
+
     try {
       await onAdjudicate(bountyId)
-      addBotMsg(`✅ Adjudication complete! Check the bounty for results.`)
-    } catch {
-      addBotMsg('❌ Adjudication failed. Make sure the bounty has a submitted solution.')
-    }
+      // Get the result
+      const bounty = bounties.find(b => b.bounty_id === bountyId)
+      if (bounty) {
+        const isAccept = bounty.verdict === 'accept'
+        const score = bounty.quality_score
+        addBotMsg(
+          isAccept
+            ? `✅ **ACCEPTED** — Score: ${score}/100\n\nThe submission meets the rubric criteria. Contributor receives the escrowed GEN.`
+            : bounty.verdict === 'more_info'
+              ? `🔄 **MORE INFO NEEDED** — Score: ${score}/100\n\nThe submission needs improvement. Contributor can revise and resubmit.`
+              : `❌ **REJECTED** — Score: ${score}/100\n\nThe submission does not meet the rubric. Requester receives a refund.`,
+          [{ label: '📋 View Details', action: () => onViewBounty(bountyId), style: 'primary' }]
+        )
+      } else {
+        addBotMsg('✅ Adjudication complete! Check the bounty for results.', [{ label: '📋 View', action: () => onViewBounty(bountyId), style: 'primary' }])
+      }
+    } catch (e) {
+      addBotMsg('❌ Adjudication failed. Make sure the bounty has a submitted solution and you are the requester or contributor.')
+    } finally { setAdjudicating(null) }
   }
 
-  // ── Check bounties status ──
+  // ── Check bounties and show adjudge options ──
   const checkBounties = () => {
-    if (bounties.length === 0) {
-      addBotMsg('📋 No bounties found. Want me to create one for you?')
-      return
-    }
+    if (bounties.length === 0) { addBotMsg('📋 No bounties found. Want me to create one?'); return }
+
     const submitted = bounties.filter(b => b.status === 'submitted')
     const open = bounties.filter(b => b.status === 'open')
     const paid = bounties.filter(b => b.status === 'paid')
@@ -137,19 +138,52 @@ Return ONLY valid JSON (no markdown): {"id":"slug","title":"title","brief":"desc
     if (refunded.length) msg += `↩️ **Refunded** (${refunded.length})\n`
     if (moreInfo.length) msg += `🔄 **Needs Revision** (${moreInfo.length})\n`
 
+    const actions: ChatAction[] = []
+
     if (submitted.length > 0) {
-      msg += `\n⚡ **${submitted.length} bounty(s) waiting for adjudication!** Say "adjudicate ${submitted[0].bounty_id}" to run AI evaluation.`
+      msg += `\n⚡ **${submitted.length} bounty(s) ready for adjudication!**\n`
+      submitted.forEach(b => {
+        actions.push({
+          label: `⚖️ Adjudge: ${b.bounty_id}`,
+          action: () => runAdjudge(b.bounty_id, b.title),
+          style: 'adjudge'
+        })
+      })
     }
 
-    addBotMsg(msg)
+    addBotMsg(msg, actions)
+  }
+
+  // ── Adjudge all pending bounties ──
+  const adjudgeAll = async () => {
+    const submitted = bounties.filter(b => b.status === 'submitted')
+    if (submitted.length === 0) {
+      addBotMsg('📋 No bounties waiting for adjudication.')
+      return
+    }
+    if (submitted.length === 1) {
+      await runAdjudge(submitted[0].bounty_id, submitted[0].title)
+      return
+    }
+    // Show list with individual adjudge buttons
+    let msg = `⚖️ **${submitted.length} bounties ready for adjudication:**\n\n`
+    submitted.forEach((b, i) => {
+      msg += `${i + 1}. **${b.bounty_id}** — ${b.title}\n`
+    })
+    msg += `\nClick a button below to adjudge, or say "adjudge [id]"`
+    const actions: ChatAction[] = submitted.map(b => ({
+      label: `⚖️ Adjudge ${b.bounty_id}`,
+      action: () => runAdjudge(b.bounty_id, b.title),
+      style: 'adjudge'
+    }))
+    addBotMsg(msg, actions)
   }
 
   const sendMessage = async (text: string) => {
     if (!text.trim()) return
     setMessages(prev => [...prev, { role: 'user', content: text }])
     setInput('')
-    setIsTyping(true)
-    setMood('thinking')
+    setIsTyping(true); setMood('thinking')
 
     const lower = text.toLowerCase().trim()
 
@@ -163,33 +197,30 @@ Return ONLY valid JSON (no markdown): {"id":"slug","title":"title","brief":"desc
 
     // Browse
     if (lower === 'browse' || lower.includes('show bounties') || lower.includes('list bounties')) {
-      addBotMsg('🔍 Showing all bounties!')
+      addBotMsg('🔍 Here are all bounties!')
       onBrowseBounties()
       setIsTyping(false); setMood('idle'); return
     }
 
-    // Check bounties / status
+    // Check status
     if (lower.includes('check') || lower.includes('status') || lower.includes('how many')) {
       checkBounties()
       setIsTyping(false); setMood('idle'); return
     }
 
-    // Adjudicate specific bounty
-    if (lower.includes('adjudicate') || lower.includes('judge') || lower.includes('evaluate') || lower.includes('check result')) {
-      // Try to extract bounty ID
-      const idMatch = text.match(/(?:adjudicate|judge|evaluate|check)\s+([a-z0-9-]+)/i)
+    // Adjudge specific bounty
+    if (lower.includes('adjudge') || lower.includes('adjudicate') || lower.includes('judge') || lower.includes('evaluate')) {
+      const idMatch = text.match(/(?:adjudge|adjudicate|judge|evaluate)\s+([a-z0-9-]+)/i)
       if (idMatch) {
-        await runAdjudicate(idMatch[1])
-      } else {
-        // Find submitted bounties
-        const submitted = bounties.filter(b => b.status === 'submitted')
-        if (submitted.length === 0) {
-          addBotMsg('📋 No bounties waiting for adjudication. A bounty must have a submitted solution first.')
-        } else if (submitted.length === 1) {
-          await runAdjudicate(submitted[0].bounty_id)
+        const bid = idMatch[1]
+        const found = bounties.find(b => b.bounty_id === bid)
+        if (found) {
+          await runAdjudge(bid, found.title)
         } else {
-          addBotMsg(`📋 Found ${submitted.length} bounties waiting for adjudication:\n${submitted.map((b, i) => `${i + 1}. **${b.bounty_id}** — ${b.title}`).join('\n')}\n\nSay "adjudicate [id]" to run AI evaluation.`)
+          addBotMsg(`❌ Bounty "${bid}" not found. Say "check" to see all bounties.`)
         }
+      } else {
+        await adjudgeAll()
       }
       setIsTyping(false); setMood('idle'); return
     }
@@ -200,14 +231,14 @@ Return ONLY valid JSON (no markdown): {"id":"slug","title":"title","brief":"desc
 
 1️⃣ **Create Bounty** — Escrow GEN, describe your task
 2️⃣ **Submit Solution** — Contributors submit work URLs
-3️⃣ **Adjudicate** — 5 GenLayer AI validators evaluate independently
+3️⃣ **Adjudge** — 5 GenLayer AI validators evaluate independently
 4️⃣ **Get Paid** — Score ≥70 → contributor gets GEN. Score <70 → requester refund.
 
 **Commands:**
 • "create [description]" — fill bounty form
 • "check" — show all bounty statuses
-• "adjudicate [id]" — run AI evaluation on submitted bounty
-• "adjudicate" — evaluate all pending bounties`)
+• "adjudge" — evaluate all pending bounties
+• "adjudge [id]" — evaluate specific bounty`)
       setIsTyping(false); setMood('idle'); return
     }
 
@@ -216,12 +247,8 @@ Return ONLY valid JSON (no markdown): {"id":"slug","title":"title","brief":"desc
     if (viewMatch) {
       const bid = viewMatch[1]
       const found = bounties.find(b => b.bounty_id === bid)
-      if (found) {
-        addBotMsg(`📋 Opening bounty **${found.title}**…`)
-        onViewBounty(bid)
-      } else {
-        addBotMsg(`❌ Bounty "${bid}" not found. Say "check" to see all bounties.`)
-      }
+      if (found) { addBotMsg(`📋 Opening **${found.title}**…`); onViewBounty(bid) }
+      else { addBotMsg(`❌ Bounty "${bid}" not found.`) }
       setIsTyping(false); setMood('idle'); return
     }
 
@@ -234,7 +261,7 @@ Return ONLY valid JSON (no markdown): {"id":"slug","title":"title","brief":"desc
     { label: '✨ Create Bounty', action: () => sendMessage('create a bounty') },
     { label: '🔍 Browse', action: () => sendMessage('browse') },
     { label: '📊 Check Status', action: () => sendMessage('check status') },
-    ...(submittedCount > 0 ? [{ label: `⚖️ Adjudicate (${submittedCount})`, action: () => sendMessage('adjudicate') }] : []),
+    ...(submittedCount > 0 ? [{ label: `⚖️ Adjudge (${submittedCount})`, action: () => adjudgeAll() }] : []),
     ...(account ? [] : [{ label: '🔗 Connect Wallet', action: () => sendMessage('connect wallet') }]),
   ]
 
@@ -246,7 +273,7 @@ Return ONLY valid JSON (no markdown): {"id":"slug","title":"title","brief":"desc
         <img src="/curiobot.png" alt="CurioBot" className="bot-img" />
         {showBubble && !isOpen && (
           <div className="bot-bubble">
-            {submittedCount > 0 ? `${submittedCount} bounty awaiting adjudication! ⚖️` : account ? 'I can create & adjudicate bounties! 🐱' : 'Click me to start! 🐱'}
+            {submittedCount > 0 ? `${submittedCount} bounty ready for adjudication! ⚖️` : account ? 'I can create & adjudicate bounties! 🐱' : 'Click me to start! 🐱'}
           </div>
         )}
       </div>
@@ -273,13 +300,28 @@ Return ONLY valid JSON (no markdown): {"id":"slug","title":"title","brief":"desc
             {messages.map((msg, i) => (
               <div key={i} className={`bot-msg ${msg.role}`}>
                 {msg.role === 'assistant' && <span className="bot-msg-avatar"><img src="/curiobot-reviewer-avatar.png" alt="Bot" className="bot-msg-img" /></span>}
-                <div className="bot-msg-content">{msg.content}</div>
+                <div className="bot-msg-content">
+                  {msg.content}
+                  {msg.actions && msg.actions.length > 0 && (
+                    <div className="bot-msg-actions">
+                      {msg.actions.map((a, j) => (
+                        <button key={j} className={`bot-msg-action-btn ${a.style || ''}`} onClick={a.action}>{a.label}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
             {isTyping && (
               <div className="bot-msg assistant">
                 <span className="bot-msg-avatar"><img src="/curiobot-reviewer-avatar.png" alt="Bot" className="bot-msg-img" /></span>
                 <div className="bot-msg-content typing"><span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" /></div>
+              </div>
+            )}
+            {adjudicating && (
+              <div className="bot-msg assistant">
+                <span className="bot-msg-avatar"><img src="/curiobot-reviewer-avatar.png" alt="Bot" className="bot-msg-img" /></span>
+                <div className="bot-msg-content"><div className="adjudge-spinner"><div className="adjudge-spinner-icon">⚖️</div><span>Evaluating {adjudicating}…</span></div></div>
               </div>
             )}
             <div ref={chatEndRef} />
@@ -292,7 +334,7 @@ Return ONLY valid JSON (no markdown): {"id":"slug","title":"title","brief":"desc
           <div className="bot-chat-input">
             <input type="text" value={input} onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') sendMessage(input) }}
-              placeholder="Describe bounty, adjudicate, or check status…" />
+              placeholder="Describe bounty, adjudge, or check status…" />
             <button onClick={() => sendMessage(input)} disabled={isTyping}>➤</button>
           </div>
         </div>

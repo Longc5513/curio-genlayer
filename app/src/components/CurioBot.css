@@ -10,42 +10,48 @@
   cursor: pointer;
   user-select: none;
   transition: transform 0.3s ease;
+  width: 80px;
+  height: 80px;
 }
 
 .curio-bot:hover {
-  transform: scale(1.1);
+  transform: scale(1.15);
+  filter: drop-shadow(0 0 12px rgba(183,255,74,0.4));
 }
 
 .curio-bot.chat-open {
-  transform: scale(0.9);
+  transform: scale(0.85);
+  opacity: 0.7;
 }
 
-.bot-body {
-  width: 56px;
-  height: 64px;
-  position: relative;
-  animation: bot-idle 3s ease-in-out infinite;
+.bot-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+  animation: bot-float 3s ease-in-out infinite;
+  pointer-events: none;
 }
 
-.curio-bot.walking .bot-body {
-  animation: bot-walk 0.6s ease-in-out infinite;
+.curio-bot.walking .bot-img {
+  animation: bot-walk-img 0.6s ease-in-out infinite;
 }
 
-.curio-bot.waving .bot-arm.left {
-  animation: bot-wave 0.8s ease-in-out 3;
+.curio-bot.waving .bot-img {
+  animation: bot-wave-img 0.8s ease-in-out 3;
 }
 
-.curio-bot.talking .bot-mouth {
-  animation: bot-talk 0.3s ease-in-out infinite;
+.curio-bot.excited .bot-img {
+  animation: bot-jump-img 0.5s ease-in-out 3;
 }
 
-.curio-bot.thinking .bot-eye.left,
-.curio-bot.thinking .bot-eye.right {
-  animation: bot-think 1s ease-in-out infinite;
+.curio-bot.thinking .bot-img {
+  animation: bot-think-img 1s ease-in-out infinite;
 }
 
-.curio-bot.excited .bot-body {
-  animation: bot-jump 0.5s ease-in-out 3;
+.curio-bot.talking .bot-img {
+  animation: bot-talk-img 0.3s ease-in-out infinite;
 }
 
 /* ── Robot Face ─────────────────────────────────────── */
@@ -254,12 +260,20 @@
 }
 
 .bot-msg-avatar {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
-  font-size: 16px;
   flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--surface3);
+}
+
+.bot-msg-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .bot-msg-content {
@@ -370,55 +384,35 @@
    Animations
    ═══════════════════════════════════════════════════════════════════ */
 
-@keyframes bot-idle {
+@keyframes bot-float {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
+  50% { transform: translateY(-6px); }
 }
 
-@keyframes bot-walk {
+@keyframes bot-walk-img {
   0%, 100% { transform: translateY(0) rotate(0deg); }
-  25% { transform: translateY(-3px) rotate(-3deg); }
-  75% { transform: translateY(-3px) rotate(3deg); }
+  25% { transform: translateY(-4px) rotate(-5deg); }
+  75% { transform: translateY(-4px) rotate(5deg); }
 }
 
-@keyframes bot-wave {
+@keyframes bot-wave-img {
   0%, 100% { transform: rotate(0deg); }
-  50% { transform: rotate(-45deg); }
+  50% { transform: rotate(8deg) translateY(-5px); }
 }
 
-@keyframes bot-jump {
+@keyframes bot-jump-img {
   0%, 100% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(-15px) scale(1.05); }
+  50% { transform: translateY(-20px) scale(1.08); }
 }
 
-@keyframes bot-blink {
-  0%, 42%, 44%, 100% { transform: scaleY(1); }
-  43% { transform: scaleY(0.1); }
+@keyframes bot-think-img {
+  0%, 100% { transform: rotate(0deg); filter: brightness(1); }
+  50% { transform: rotate(-3deg); filter: brightness(0.8); }
 }
 
-@keyframes bot-talk {
-  0%, 100% { transform: translateX(-50%) scaleY(1); }
-  50% { transform: translateX(-50%) scaleY(1.5); }
-}
-
-@keyframes bot-think {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-
-@keyframes antenna-glow {
-  0%, 100% { box-shadow: 0 0 5px var(--green); }
-  50% { box-shadow: 0 0 15px var(--green), 0 0 25px rgba(183,255,74,0.3); }
-}
-
-@keyframes arm-swing-l {
-  0%, 100% { transform: rotate(0deg); }
-  50% { transform: rotate(15deg); }
-}
-
-@keyframes arm-swing-r {
-  0%, 100% { transform: rotate(0deg); }
-  50% { transform: rotate(-15deg); }
+@keyframes bot-talk-img {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
 }
 
 @keyframes bubble-pop {

@@ -162,21 +162,10 @@ Current bounties on platform: 10 (1 open, 1 submitted, 1 more_info, 1 paid, 4 re
         onClick={() => { if (!isDragging) { setIsOpen(!isOpen); setShowBubble(false) } }}
         onMouseDown={handleMouseDown}
       >
-        <div className="bot-body">
-          <div className="bot-face">
-            <div className="bot-eye left" />
-            <div className="bot-eye right" />
-            <div className={`bot-mouth ${mood}`} />
-          </div>
-          <div className="bot-antenna">
-            <div className="bot-antenna-ball" />
-          </div>
-          <div className="bot-arm left" />
-          <div className="bot-arm right" />
-        </div>
+        <img src="/curiobot.png" alt="CurioBot" className="bot-img" />
         {showBubble && !isOpen && (
           <div className="bot-bubble">
-            {account ? 'Hi! Click me to chat! 🤖' : 'Connect your wallet first! 🔗'}
+            {account ? 'Click me to chat! 🤖' : 'Connect wallet first! 🔗'}
           </div>
         )}
       </div>
@@ -192,13 +181,13 @@ Current bounties on platform: 10 (1 open, 1 submitted, 1 more_info, 1 paid, 4 re
           <div className="bot-chat-messages">
             {messages.map((msg, i) => (
               <div key={i} className={`bot-msg ${msg.role}`}>
-                {msg.role === 'assistant' && <span className="bot-msg-avatar">🤖</span>}
+                {msg.role === 'assistant' && <span className="bot-msg-avatar"><img src="/curiobot-reviewer-avatar.png" alt="Bot" className="bot-msg-img" /></span>}
                 <div className="bot-msg-content">{msg.content}</div>
               </div>
             ))}
             {isTyping && (
               <div className="bot-msg assistant">
-                <span className="bot-msg-avatar">🤖</span>
+                <span className="bot-msg-avatar"><img src="/curiobot-reviewer-avatar.png" alt="Bot" className="bot-msg-img" /></span>
                 <div className="bot-msg-content typing">
                   <span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" />
                 </div>

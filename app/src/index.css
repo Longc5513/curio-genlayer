@@ -429,6 +429,30 @@ main { padding: 28px 36px; overflow-y: auto; max-height: 100vh; }
 .btn.ai { background: rgba(188,140,255,.12); color: var(--purple); border-color: rgba(188,140,255,.3); }
 .btn.ai:hover { background: rgba(188,140,255,.2); }
 .btn.ai:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── Adjudication Prompt ────────────────────────────── */
+
+.adj-prompt {
+  background: rgba(183,255,74,.06);
+  border: 2px solid rgba(183,255,74,.3);
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+  margin-bottom: 12px;
+  animation: adj-pulse 2s ease-in-out infinite;
+}
+
+@keyframes adj-pulse {
+  0%, 100% { border-color: rgba(183,255,74,.3); }
+  50% { border-color: rgba(183,255,74,.6); box-shadow: 0 0 20px rgba(183,255,74,.15); }
+}
+
+.adj-prompt-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--green);
+  margin-bottom: 12px;
+}
 .ai-buttons { display: flex; gap: 8px; margin-top: 6px; }
 .ai-message { font-size: 13px; padding: 10px 14px; border-radius: 8px; background: rgba(188,140,255,.08); border: 1px solid rgba(188,140,255,.2); color: var(--purple); }
 .ai-check-result { padding: 14px; border-radius: 8px; margin-top: 10px; font-size: 13px; }

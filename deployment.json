@@ -1,16 +1,17 @@
 {
-  "project": "Curio Enterprise",
+  "project": "Curio Learning Bounties",
   "network": "studionet",
-  "contractAddress": "0x668d5D34d9a58447410bb1f06B14496CE6Bb7D46",
-  "studioImportUrl": "https://studio.genlayer.com/?import-contract=0x668d5D34d9a58447410bb1f06B14496CE6Bb7D46",
+  "contractAddress": "0x005f242A7577669be6267E391b07A9980Dff4c63",
+  "studioImportUrl": "https://studio.genlayer.com/?import-contract=0x005f242A7577669be6267E391b07A9980Dff4c63",
   "explorerBaseUrl": "https://explorer-studio.genlayer.com",
-  "sourceContract": "contracts/curio_enterprise.py",
-  "version": "2.0.0",
+  "sourceContract": "contracts/curio_learning_bounties_studionet.py",
+  "version": "1.1.0",
   "features": [
-    "Multi-field adjudication (14 fields)",
-    "Company CRUD + batch import (max 10)",
-    "AI-powered scoring with weighted criteria",
-    "Batch processing for multiple companies",
-    "Consensus-backed evaluation by GenLayer validators"
+    "Learning bounty creation with GEN escrow",
+    "Contributor solution submission",
+    "AI-powered adjudication via GenLayer consensus (run_nondet_unsafe)",
+    "Bounty cancellation with refund",
+    "Requester and contributor tracking",
+    "Studionet-compatible (no token transfers)"
   ]
 }

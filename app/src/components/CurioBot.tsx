@@ -53,7 +53,7 @@ export default function CurioBot({ onConnectWallet, onCreateBounty, onBrowseBoun
   const generateAndFill = async (userText: string) => {
     setIsTyping(true)
     setMood('thinking')
-    addBotMsg('🤖 Analyzing your request and generating bounty with MiMo AI…')
+    addBotMsg('🤖 Analyzing your request and generating bounty…')
 
     try {
       const result = await callMiMo([
@@ -257,7 +257,7 @@ Return ONLY valid JSON (no markdown): {"id":"slug","title":"title","brief":"desc
             <img src="/curiobot-reviewer-avatar.png" alt="Bot" className="bot-header-img" />
             <div className="bot-header-info">
               <span className="bot-chat-title">CurioBot</span>
-              <span className="bot-chat-subtitle">MiMo AI · GenLayer Agent</span>
+              <span className="bot-chat-subtitle">GenLayer Agent</span>
             </div>
             <button className="bot-chat-close" onClick={() => setIsOpen(false)}>×</button>
           </div>

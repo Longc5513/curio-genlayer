@@ -51,36 +51,50 @@ export default function CurioBot({ onConnectWallet, onCreateBounty, onBrowseBoun
   const generateAndFillForm = async (userRequest: string) => {
     setIsTyping(true)
     setMood('thinking')
-    addBotMsg('🤖 Đang tạo bounty cho bạn bằng MiMo AI…')
+    addBotMsg('🤖 Đang phân tích yêu cầu và tạo bounty bằng MiMo AI…')
 
     try {
       const result = await callMiMo([
-        { role: 'system', content: `You are a bounty creation assistant. Generate bounty form data based on the user's request.
-Return ONLY valid JSON with these fields:
-- "id": slug format (lowercase, hyphens, 3-30 chars, e.g. "python-async-tutorial")
-- "title": clear title (10-100 chars)
-- "brief": detailed description of what's needed (30-500 chars)
-- "rubric": scoring criteria with point allocations (30-500 chars)
-- "refUrl": a relevant reference URL (https://...) or empty string
+        { role: 'system', content: `You are a smart bounty creation assistant for Curio on GenLayer blockchain.
+Your job: Read the user's request carefully and generate SPECIFIC, DETAILED bounty form data based EXACTLY on what they describe.
 
-Make the brief and rubric specific and actionable. The rubric should have clear scoring criteria.` },
+IMPORTANT RULES:
+- Extract ALL specific details from the user's message (names, amounts, deadlines, parties involved, documents, etc.)
+- The title must reflect the EXACT topic the user described
+- The brief must be a detailed description that includes ALL user-provided context
+- The rubric must have specific scoring criteria relevant to the topic
+- Generate a clean slug ID from the topic
+- If the user mentions specific parties (companies, people), include them in the brief
+- If the user mentions amounts, deadlines, or conditions, include them
+- Write in the SAME LANGUAGE as the user (Vietnamese → Vietnamese, English → English)
+
+Return ONLY valid JSON:
+{
+  "id": "slug-format-id",
+  "title": "Specific title based on user's request",
+  "brief": "Detailed description with ALL user-provided details, 100-500 chars",
+  "rubric": "Specific scoring criteria relevant to the topic, 100-500 chars",
+  "refUrl": "relevant reference URL or empty string"
+}` },
         { role: 'user', content: userRequest }
-      ], 500)
+      ], 800)
 
       // Parse the AI response
       let data: BountyFormData
       try {
-        const cleaned = result.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-        const parsed = JSON.parse(cleaned)
+        // Try to extract JSON from response
+        const jsonMatch = result.match(/\{[\s\S]*\}/)
+        const jsonStr = jsonMatch ? jsonMatch[0] : result
+        const parsed = JSON.parse(jsonStr)
         data = {
-          id: parsed.id || `bounty-${Date.now().toString(36)}`,
-          title: parsed.title || 'Untitled Bounty',
+          id: (parsed.id || `bounty-${Date.now().toString(36)}`).toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 40),
+          title: parsed.title || userRequest.slice(0, 100),
           brief: parsed.brief || '',
-          rubric: parsed.rubric || '',
+          rubric: parsed.rubric || 'Accuracy 30pts, Completeness 25pts, Clarity 25pts, Examples 20pts',
           refUrl: parsed.refUrl || '',
         }
       } catch {
-        // If JSON parse fails, create from text
+        // If JSON parse fails, use the raw AI output as brief
         data = {
           id: `bounty-${Date.now().toString(36)}`,
           title: userRequest.slice(0, 100),
@@ -91,13 +105,12 @@ Make the brief and rubric specific and actionable. The rubric should have clear 
       }
 
       // Show what was generated
-      addBotMsg(`✅ Đã tạo xong! Đây là thông tin bounty:
+      addBotMsg(`✅ Đã tạo xong! Form đã điền sẵn:
 
 📄 **${data.title}**
-📝 ${data.brief.slice(0, 150)}${data.brief.length > 150 ? '…' : ''}
-📏 ${data.rubric.slice(0, 100)}${data.rubric.length > 100 ? '…' : ''}
+📝 ${data.brief.slice(0, 200)}${data.brief.length > 200 ? '…' : ''}
 
-Đang chuyển bạn sang trang Create Bounty với form đã điền sẵn…`)
+Đang chuyển bạn sang trang Create Bounty…`)
 
       // Pass data to Create Bounty page
       setTimeout(() => {
@@ -148,32 +161,29 @@ Bạn muốn tạo bounty không? Chỉ cần nói cho tôi biết bạn cần g
       setIsTyping(false); setMood('idle'); return
     }
 
-    // Check if user wants to create/fill a bounty
-    if (lower.includes('tạo') || lower.includes('create') || lower.includes('điền') || lower.includes('fill') || lower.includes('làm') || lower.includes('viết')) {
-      // Check if it's a specific request or just "create bounty"
-      if (lower.length > 20 || !lower.match(/^(create|tạo)\s*(bounty)?$/)) {
-        // User has a specific request - generate and fill
-        await generateAndFillForm(text)
-        return
-      }
-      // Just "create bounty" - ask what they want
-      addBotMsg('✨ Bạn muốn tạo bounty về chủ đề gì? Ví dụ:\n\n• "Viết tutorial về Python async"\n• "Tạo guide về Docker cho microservices"\n• "Bài viết về blockchain basics"\n\nNói cho tôi biết, tôi sẽ điền form cho bạn!')
-      setIsTyping(false); setMood('idle'); return
-    }
+    // Check if user wants to create/fill a bounty with specific details
+    const isCreateRequest = lower.includes('tạo bounty') || lower.includes('create bounty') || lower.includes('điền') || lower.includes('fill')
+    const hasSpecificDetails = text.length > 30 && (
+      lower.includes('công ty') || lower.includes('company') || lower.includes('tranh chấp') || lower.includes('dispute') ||
+      lower.includes('hợp đồng') || lower.includes('contract') || lower.includes('thanh toán') || lower.includes('payment') ||
+      lower.includes('tutorial') || lower.includes('guide') || lower.includes('bài viết') || lower.includes('code') ||
+      lower.includes('viết') || lower.includes('tạo') || lower.includes('làm') || lower.includes('xây dựng') ||
+      lower.includes('phân tích') || lower.includes('đánh giá') || lower.includes('kiểm tra')
+    )
 
-    // Default: treat as bounty creation request if it's descriptive enough
-    if (text.length > 20 && !lower.includes('xin chào') && !lower.includes('hello')) {
+    if (isCreateRequest || hasSpecificDetails) {
       await generateAndFillForm(text)
       return
     }
 
-    // General chat
+    // General chat — MiMo AI decides what to do
     try {
       const ctx = account ? `Wallet: ${account.slice(0,6)}...${account.slice(-4)} (connected)` : 'Wallet: NOT connected'
       const result = await callMiMo([
-        { role: 'system', content: `You are CurioBot 🐱, a cute AI assistant for Curio Learning Bounties on GenLayer.
-Help users create bounties. When they describe what they need, generate the form data.
+        { role: 'system', content: `You are CurioBot 🐱, a cute AI assistant for Curio Learning Bounties on GenLayer blockchain.
+Help users create bounties. If they describe a specific task/topic, tell them to describe it in detail so you can fill the form.
 Be concise, friendly, use emojis. Reply in the same language as the user.
+If the user seems to want to create a bounty but hasn't given enough details, ask them what specific topic/task they want.
 Context: ${ctx}` },
         ...messages.slice(-6), userMsg,
       ], 250)

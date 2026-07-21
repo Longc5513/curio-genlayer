@@ -142,8 +142,10 @@ async function write(account: Address, fn: string, args: unknown[], value: bigin
 }
 
 // create_bounty is @gl.public.write.payable — must send GEN value
-export const createBounty = (acc: Address, id: string, title: string, brief: string, rubric: string, refUrl: string, valueWei: bigint, onHash?: (h: string) => void) =>
-  write(acc, 'create_bounty', [id, title, brief, rubric, refUrl], valueWei, onHash)
+export const createBounty = (acc: Address, id: string, title: string, brief: string, rubric: string, refUrl: string, _valueWei: bigint, onHash?: (h: string) => void) =>
+  // On studionet, token transfers are not supported — send 0 value
+  // Contract fallback assigns 1 GEN default when value is 0
+  write(acc, 'create_bounty', [id, title, brief, rubric, refUrl], 0n, onHash)
 
 // submit_solution is @gl.public.write
 export const submitSolution = (acc: Address, bountyId: string, submissionUrl: string, note: string, onHash?: (h: string) => void) =>

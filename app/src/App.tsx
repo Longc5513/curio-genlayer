@@ -359,7 +359,7 @@ export default function App() {
         )}
       </main>
 
-      <CurioBot account={account} onConnectWallet={handleConnect} onCreateBounty={() => botCreateBounty()} onBrowseBounties={() => nav('browse')} />
+      <CurioBot account={account} onConnectWallet={handleConnect} onCreateBounty={botCreateBounty} onBrowseBounties={() => nav('browse')} />
     </div>
   )
 }
@@ -512,12 +512,23 @@ function CreateBountyView({ account, prefilled, onSubmit }: {
   account: string | null; prefilled: BountyFormData | null
   onSubmit: (id: string, title: string, brief: string, rubric: string, refUrl: string, genAmount: string) => void
 }) {
-  const [id, setId] = useState(prefilled?.id || '')
-  const [title, setTitle] = useState(prefilled?.title || '')
-  const [brief, setBrief] = useState(prefilled?.brief || '')
-  const [rubric, setRubric] = useState(prefilled?.rubric || '')
-  const [refUrl, setRefUrl] = useState(prefilled?.refUrl || '')
+  const [id, setId] = useState('')
+  const [title, setTitle] = useState('')
+  const [brief, setBrief] = useState('')
+  const [rubric, setRubric] = useState('')
+  const [refUrl, setRefUrl] = useState('')
   const [genAmount, setGenAmount] = useState('1')
+
+  // Update form when prefilled data arrives from CurioBot
+  useEffect(() => {
+    if (prefilled) {
+      setId(prefilled.id || '')
+      setTitle(prefilled.title || '')
+      setBrief(prefilled.brief || '')
+      setRubric(prefilled.rubric || '')
+      setRefUrl(prefilled.refUrl || '')
+    }
+  }, [prefilled])
   const [aiLoading, setAiLoading] = useState(false); const [aiMsg, setAiMsg] = useState('')
 
   const handleAIGenerate = async () => {

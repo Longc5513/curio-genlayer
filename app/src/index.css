@@ -424,6 +424,22 @@ main { padding: 28px 36px; overflow-y: auto; max-height: 100vh; }
 .bounty-status-pill.sm { font-size: 10px; padding: 2px 8px; }
 .empty-sm { color: var(--muted); font-size: 13px; padding: 16px 0; text-align: center; }
 
+/* ── AI Features ────────────────────────────────────── */
+
+.btn.ai { background: rgba(188,140,255,.12); color: var(--purple); border-color: rgba(188,140,255,.3); }
+.btn.ai:hover { background: rgba(188,140,255,.2); }
+.btn.ai:disabled { opacity: .5; cursor: not-allowed; }
+.ai-buttons { display: flex; gap: 8px; margin-top: 6px; }
+.ai-message { font-size: 13px; padding: 10px 14px; border-radius: 8px; background: rgba(188,140,255,.08); border: 1px solid rgba(188,140,255,.2); color: var(--purple); }
+.ai-check-result { padding: 14px; border-radius: 8px; margin-top: 10px; font-size: 13px; }
+.ai-check-result.good { background: rgba(63,185,80,.08); border: 1px solid rgba(63,185,80,.2); color: var(--green); }
+.ai-check-result.ok { background: rgba(210,153,34,.08); border: 1px solid rgba(210,153,34,.2); color: var(--warning); }
+.ai-check-result.low { background: rgba(248,81,73,.08); border: 1px solid rgba(248,81,73,.2); color: var(--danger); }
+.ai-check-result strong { display: block; margin-bottom: 6px; }
+.ai-check-result p { margin-bottom: 6px; }
+.ai-check-result ul { margin: 6px 0 0 16px; }
+.ai-check-result li { margin-bottom: 4px; }
+
 /* ── View containers ────────────────────────────────── */
 
 .dashboard-view {}

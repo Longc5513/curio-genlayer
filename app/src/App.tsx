@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
 import { shortAddr, weiToGen, scoreColor, verdictColor, cleanError, timeAgo, formatNumber, truncate } from './lib/format'
+import { generateBountyBrief, checkSubmissionQuality, improveDescription } from './lib/mimo-ai'
 import {
   connectWallet, getConnectedWallet, subscribeWallet,
   getContractHealth, listBounties, getBounty, listRequesterBounties, listContributorBounties,
@@ -505,14 +506,7 @@ function BountyDetailView({ bounty, account, activityFeed, addActivity, onRefres
       <div className="bounty-actions">
         {canSubmit && !showSubmit && <button className="btn primary" onClick={() => setShowSubmit(true)}>📩 Submit Solution</button>}
         {canSubmit && showSubmit && (
-          <div className="card submit-form">
-            <h3>Submit Your Solution</h3>
-            <div className="form">
-              <div className="form-group"><label>Solution URL (HTTPS)</label><input type="url" value={submitUrl} onChange={e => setSubmitUrl(e.target.value)} placeholder="https://your-deliverable.com" /></div>
-              <div className="form-group"><label>Note to Requester</label><textarea value={submitNote} onChange={e => setSubmitNote(e.target.value)} placeholder="Describe your deliverable…" rows={4} /></div>
-              <div className="form-actions"><button className="btn primary" onClick={() => onSubmit(submitUrl, submitNote)}>Submit</button><button className="btn secondary" onClick={() => setShowSubmit(false)}>Cancel</button></div>
-            </div>
-          </div>
+          <SubmitForm bounty={bounty} onSubmit={onSubmit} onCancel={() => setShowSubmit(false)} />
         )}
         {canAdjudicate && <button className="btn primary" onClick={onAdjudicate}>⚖️ Run Adjudication</button>}
         {canCancel && <button className="btn danger" onClick={onCancel}>❌ Cancel & Refund</button>}
@@ -537,6 +531,52 @@ function BountyDetailView({ bounty, account, activityFeed, addActivity, onRefres
 }
 
 // ══════════════════════════════════════════════════════════════════════
+// SubmitForm (AI-enhanced)
+// ══════════════════════════════════════════════════════════════════════
+
+function SubmitForm({ bounty, onSubmit, onCancel }: {
+  bounty: LearningBounty; onSubmit: (url: string, note: string) => void; onCancel: () => void
+}) {
+  const [url, setUrl] = useState(''); const [note, setNote] = useState('')
+  const [aiCheck, setAiCheck] = useState<{ score: number; feedback: string; suggestions: string[] } | null>(null)
+  const [checking, setChecking] = useState(false)
+
+  const handleAICheck = async () => {
+    if (!url.trim() || !note.trim()) return
+    setChecking(true)
+    try {
+      const result = await checkSubmissionQuality(bounty.brief, bounty.rubric, url, note)
+      setAiCheck(result)
+    } catch { setAiCheck(null) }
+    finally { setChecking(false) }
+  }
+
+  return (
+    <div className="card submit-form">
+      <h3>Submit Your Solution</h3>
+      <div className="form">
+        <div className="form-group"><label>Solution URL (HTTPS)</label><input type="url" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://your-deliverable.com" /></div>
+        <div className="form-group"><label>Note to Requester</label><textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Describe your deliverable…" rows={4} /></div>
+        <div className="form-actions">
+          <button className="btn ai" onClick={handleAICheck} disabled={checking || !url.trim() || !note.trim()}>{checking ? '🤖 Checking…' : '🤖 AI Pre-Check'}</button>
+          <button className="btn primary" onClick={() => onSubmit(url, note)}>Submit</button>
+          <button className="btn secondary" onClick={onCancel}>Cancel</button>
+        </div>
+        {aiCheck && (
+          <div className={`ai-check-result ${aiCheck.score >= 70 ? 'good' : aiCheck.score >= 40 ? 'ok' : 'low'}`}>
+            <strong>🤖 AI Score: {aiCheck.score}/100</strong>
+            <p>{aiCheck.feedback}</p>
+            {aiCheck.suggestions.length > 0 && (
+              <ul>{aiCheck.suggestions.map((s, i) => <li key={i}>{s}</li>)}</ul>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════════════
 // CreateBountyView
 // ══════════════════════════════════════════════════════════════════════
 
@@ -545,6 +585,28 @@ function CreateBountyView({ account, onSubmit }: {
 }) {
   const [id, setId] = useState(''); const [title, setTitle] = useState(''); const [brief, setBrief] = useState('')
   const [rubric, setRubric] = useState(''); const [refUrl, setRefUrl] = useState(''); const [genAmount, setGenAmount] = useState('1')
+  const [aiLoading, setAiLoading] = useState(false); const [aiMsg, setAiMsg] = useState('')
+
+  const handleAIGenerate = async () => {
+    if (!title.trim()) { setAiMsg('Enter a title first'); return }
+    setAiLoading(true); setAiMsg('🤖 Generating with MiMo AI…')
+    try {
+      const result = await generateBountyBrief(title)
+      setBrief(result.brief); setRubric(result.rubric)
+      setAiMsg('✓ AI generated brief & rubric — review and edit as needed')
+    } catch (e) { setAiMsg('⚠ AI generation failed — fill in manually') }
+    finally { setAiLoading(false) }
+  }
+
+  const handleAIImprove = async () => {
+    if (!title.trim() || !brief.trim()) { setAiMsg('Enter title and brief first'); return }
+    setAiLoading(true); setAiMsg('🤖 Improving description…')
+    try {
+      const improved = await improveDescription(title, brief)
+      setBrief(improved); setAiMsg('✓ Description improved by AI')
+    } catch (e) { setAiMsg('⚠ AI improvement failed') }
+    finally { setAiLoading(false) }
+  }
 
   if (!account) return <div className="create-view"><div className="empty-lg"><span className="empty-icon">🔗</span><h3>Connect Wallet</h3><p>Connect to create bounties.</p></div></div>
 
@@ -555,11 +617,22 @@ function CreateBountyView({ account, onSubmit }: {
         <p className="create-desc">Escrow GEN and describe the deliverable you need. GenLayer validators will evaluate submissions against your rubric using AI consensus.</p>
         <div className="form">
           <div className="form-group"><label>Bounty ID (slug)</label><input type="text" value={id} onChange={e=>setId(e.target.value)} placeholder="python-async-tutorial"/><small>Letters, numbers, hyphens, underscores</small></div>
-          <div className="form-group"><label>Title</label><input type="text" value={title} onChange={e=>setTitle(e.target.value)} placeholder="Write a Python async/await tutorial"/></div>
-          <div className="form-group"><label>Brief (30-2500 chars)</label><textarea value={brief} onChange={e=>setBrief(e.target.value)} placeholder="Describe what you need in detail…" rows={5}/></div>
+          <div className="form-group">
+            <label>Title</label>
+            <input type="text" value={title} onChange={e=>setTitle(e.target.value)} placeholder="Write a Python async/await tutorial"/>
+            <div className="ai-buttons">
+              <button className="btn ai" onClick={handleAIGenerate} disabled={aiLoading}>🤖 AI Generate Brief & Rubric</button>
+            </div>
+          </div>
+          <div className="form-group">
+            <label>Brief (30-2500 chars)</label>
+            <textarea value={brief} onChange={e=>setBrief(e.target.value)} placeholder="Describe what you need in detail…" rows={5}/>
+            {brief && <button className="btn ai small" onClick={handleAIImprove} disabled={aiLoading}>✨ AI Improve</button>}
+          </div>
           <div className="form-group"><label>Scoring Rubric (30-2500 chars)</label><textarea value={rubric} onChange={e=>setRubric(e.target.value)} placeholder="How should the deliverable be evaluated? What criteria matter?" rows={5}/></div>
           <div className="form-group"><label>Reference URL (optional)</label><input type="url" value={refUrl} onChange={e=>setRefUrl(e.target.value)} placeholder="https://example.com/reference"/></div>
           <div className="form-group"><label>Reward (GEN)</label><input type="number" step="0.01" min="0.01" value={genAmount} onChange={e=>setGenAmount(e.target.value)}/><small>This GEN will be escrowed in the contract</small></div>
+          {aiMsg && <div className="ai-message">{aiMsg}</div>}
           <button className="btn primary lg" onClick={()=>onSubmit(id,title,brief,rubric,refUrl,genAmount)}>🔒 Escrow {genAmount} GEN & Create Bounty</button>
         </div>
       </div>

@@ -1,6 +1,1 @@
-{
-  "framework": null,
-  "outputDirectory": "app/dist",
-  "buildCommand": "bash build.sh",
-  "installCommand": "echo skip"
-}
+{}

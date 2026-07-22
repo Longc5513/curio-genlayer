@@ -410,7 +410,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* ── Adjudication Pipeline Diagram ── */}
+            {/* ── Adjudication Pipeline — Transparency Dashboard ── */}
             <div className="card adj-pipeline-card">
               <div className="ap-header">
                 <h3>ADJUDICATION PIPELINE</h3>
@@ -420,94 +420,72 @@ export default function App() {
                   <span className="ap-leg ap-leg-cons">CONSENSUS</span>
                 </div>
               </div>
+
+              {/* Static Pipeline Diagram */}
               <div className="ap-flow">
-                {/* Stage 1: Evidence Fetch */}
-                <div className="ap-stage">
-                  <div className="ap-node ap-det">
-                    <div className="ap-icon">🌐</div>
-                    <div className="ap-label">EVIDENCE</div>
-                    <div className="ap-sub">Fetch & Normalize</div>
-                  </div>
-                  <div className="ap-detail">
-                    <div className="ap-detail-row">submission_url</div>
-                    <div className="ap-detail-row">reference_url</div>
-                    <div className="ap-detail-row">contributor note</div>
-                  </div>
-                </div>
-
+                <div className="ap-stage"><div className="ap-node ap-det"><div className="ap-icon">🌐</div><div className="ap-label">EVIDENCE</div><div className="ap-sub">Fetch & Normalize</div></div></div>
                 <div className="ap-arrow"><div className="ap-arrow-track"><div className="ap-arrow-dot"></div></div><div className="ap-arrow-chev">›</div></div>
-
-                {/* Stage 2: Leader Evaluation */}
-                <div className="ap-stage">
-                  <div className="ap-node ap-nondet">
-                    <div className="ap-icon">🤖</div>
-                    <div className="ap-label">LEADER</div>
-                    <div className="ap-sub">LLM Evaluation</div>
-                  </div>
-                  <div className="ap-detail">
-                    <div className="ap-detail-row">exec_prompt()</div>
-                    <div className="ap-detail-row">response_format=json</div>
-                    <div className="ap-detail-row">score + verdict</div>
-                  </div>
-                </div>
-
+                <div className="ap-stage"><div className="ap-node ap-nondet"><div className="ap-icon">🤖</div><div className="ap-label">LEADER</div><div className="ap-sub">LLM Evaluation</div></div></div>
                 <div className="ap-arrow"><div className="ap-arrow-track"><div className="ap-arrow-dot"></div></div><div className="ap-arrow-chev">›</div></div>
-
-                {/* Stage 3: Validator Re-eval */}
-                <div className="ap-stage">
-                  <div className="ap-node ap-nondet">
-                    <div className="ap-icon">🔍</div>
-                    <div className="ap-label">VALIDATOR</div>
-                    <div className="ap-sub">Independent Re-eval</div>
-                  </div>
-                  <div className="ap-detail">
-                    <div className="ap-detail-row">same prompt</div>
-                    <div className="ap-detail-row">own LLM call</div>
-                    <div className="ap-detail-row">own score</div>
-                  </div>
-                </div>
-
+                <div className="ap-stage"><div className="ap-node ap-nondet"><div className="ap-icon">🔍</div><div className="ap-label">VALIDATOR</div><div className="ap-sub">Independent Re-eval</div></div></div>
                 <div className="ap-arrow"><div className="ap-arrow-track"><div className="ap-arrow-dot"></div></div><div className="ap-arrow-chev">›</div></div>
-
-                {/* Stage 4: Compare */}
-                <div className="ap-stage">
-                  <div className="ap-node ap-cons">
-                    <div className="ap-icon">⚖️</div>
-                    <div className="ap-label">COMPARE</div>
-                    <div className="ap-sub">Substantive Check</div>
-                  </div>
-                  <div className="ap-detail">
-                    <div className="ap-detail-row">decision match?</div>
-                    <div className="ap-detail-row">score ≤ 10 diff?</div>
-                    <div className="ap-detail-row">criteria ≤ 1 diff?</div>
-                    <div className="ap-detail-row ap-highlight">payout boundary?</div>
-                  </div>
-                </div>
-
+                <div className="ap-stage"><div className="ap-node ap-cons"><div className="ap-icon">⚖️</div><div className="ap-label">COMPARE</div><div className="ap-sub">Substantive Check</div></div></div>
                 <div className="ap-arrow ap-arrow-final"><div className="ap-arrow-track"><div className="ap-arrow-dot"></div></div><div className="ap-arrow-chev">›</div></div>
+                <div className="ap-stage"><div className="ap-verdicts">
+                  <div className="ap-verdict ap-v-accept"><div className="ap-v-icon">✅</div><div className="ap-v-label">ACCEPT</div><div className="ap-v-rule">score ≥ 70</div></div>
+                  <div className="ap-verdict ap-v-reject"><div className="ap-v-icon">❌</div><div className="ap-v-label">REJECT</div><div className="ap-v-rule">score &lt; 70</div></div>
+                  <div className="ap-verdict ap-v-info"><div className="ap-v-icon">🔄</div><div className="ap-v-label">MORE INFO</div><div className="ap-v-rule">incomplete</div></div>
+                </div></div>
+              </div>
 
-                {/* Stage 5: Verdict */}
-                <div className="ap-stage">
-                  <div className="ap-verdicts">
-                    <div className="ap-verdict ap-v-accept">
-                      <div className="ap-v-icon">✅</div>
-                      <div className="ap-v-label">ACCEPT</div>
-                      <div className="ap-v-rule">score ≥ 70</div>
-                      <div className="ap-v-action">→ Pay contributor</div>
-                    </div>
-                    <div className="ap-verdict ap-v-reject">
-                      <div className="ap-v-icon">❌</div>
-                      <div className="ap-v-label">REJECT</div>
-                      <div className="ap-v-rule">score &lt; 70</div>
-                      <div className="ap-v-action">→ Refund requester</div>
-                    </div>
-                    <div className="ap-verdict ap-v-info">
-                      <div className="ap-v-icon">🔄</div>
-                      <div className="ap-v-label">MORE INFO</div>
-                      <div className="ap-v-rule">incomplete</div>
-                      <div className="ap-v-action">→ Resubmit</div>
-                    </div>
+              {/* Real Adjudication Results — Transparency Table */}
+              {recentVerdicts.length > 0 && (
+                <div className="ap-results">
+                  <div className="ap-results-header">
+                    <h4>RECENT ADJUDICATION RESULTS</h4>
+                    <span className="ap-results-count">{recentVerdicts.length} evaluated</span>
                   </div>
+                  <div className="ap-table">
+                    <div className="ap-thead">
+                      <span className="ap-th">BOUNTY</span>
+                      <span className="ap-th">EVIDENCE</span>
+                      <span className="ap-th ap-th-center">SCORE</span>
+                      <span className="ap-th ap-th-center">CRITERIA</span>
+                      <span className="ap-th ap-th-center">PAYOUT</span>
+                      <span className="ap-th">VERDICT</span>
+                      <span className="ap-th">REASONING</span>
+                    </div>
+                    {recentVerdicts.map(b => (
+                      <div key={b.bounty_id} className={`ap-trow ap-row-${b.verdict}`} onClick={() => void viewBounty(b)}>
+                        <span className="ap-td ap-td-title">{truncate(b.title, 24)}</span>
+                        <span className="ap-td ap-td-url"><a href={b.submission_url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>{truncate(b.submission_url.replace('https://', ''), 20)}</a></span>
+                        <span className="ap-td ap-td-center ap-td-score" style={{ color: scoreColor(b.quality_score) }}>{b.quality_score}</span>
+                        <span className="ap-td ap-td-center">{b.criteria_met}/10</span>
+                        <span className="ap-td ap-td-center ap-td-payout" style={{ color: b.quality_score >= 70 ? '#3fb950' : '#f85149' }}>{b.quality_score >= 70 ? 'PASS' : 'FAIL'}</span>
+                        <span className="ap-td"><span className={`ap-verdict-badge ap-vb-${b.verdict}`}>{b.verdict === 'accept' ? '✅ ACCEPT' : b.verdict === 'reject' ? '❌ REJECT' : '🔄 INFO'}</span></span>
+                        <span className="ap-td ap-td-reasoning">{truncate(b.reasoning, 60)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Verdict Distribution Bar */}
+              <div className="ap-verdict-bar">
+                <div className="ap-vb-label">VERDICT DISTRIBUTION</div>
+                <div className="ap-vb-track">
+                  {adjudicationMetrics.total > 0 ? (
+                    <>
+                      <div className="ap-vb-seg" style={{ width: `${Math.round(recentVerdicts.filter(b => b.verdict === 'accept').length / Math.max(recentVerdicts.length, 1) * 100)}%`, background: '#3fb950' }} title={`Accept: ${recentVerdicts.filter(b => b.verdict === 'accept').length}`} />
+                      <div className="ap-vb-seg" style={{ width: `${Math.round(recentVerdicts.filter(b => b.verdict === 'reject').length / Math.max(recentVerdicts.length, 1) * 100)}%`, background: '#f85149' }} title={`Reject: ${recentVerdicts.filter(b => b.verdict === 'reject').length}`} />
+                      <div className="ap-vb-seg" style={{ width: `${Math.round(recentVerdicts.filter(b => b.verdict === 'more_info').length / Math.max(recentVerdicts.length, 1) * 100)}%`, background: '#d29922' }} title={`More Info: ${recentVerdicts.filter(b => b.verdict === 'more_info').length}`} />
+                    </>
+                  ) : <div className="ap-vb-empty">No evaluations yet</div>}
+                </div>
+                <div className="ap-vb-legend">
+                  <span><span className="ap-vb-dot" style={{ background: '#3fb950' }} />Accept</span>
+                  <span><span className="ap-vb-dot" style={{ background: '#f85149' }} />Reject</span>
+                  <span><span className="ap-vb-dot" style={{ background: '#d29922' }} />More Info</span>
                 </div>
               </div>
             </div>

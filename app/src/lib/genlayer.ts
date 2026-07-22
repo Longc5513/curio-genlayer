@@ -155,6 +155,10 @@ export const submitSolution = (acc: Address, bountyId: string, submissionUrl: st
 export const adjudicate = (acc: Address, bountyId: string, onHash?: (h: string) => void) =>
   write(acc, 'adjudicate', [bountyId], 0n, onHash)
 
+// submit_and_adjudicate is @gl.public.write — submit + auto-adjudicate in one tx
+export const submitAndAdjudicate = (acc: Address, bountyId: string, submissionUrl: string, note: string, onHash?: (h: string) => void) =>
+  write(acc, 'submit_and_adjudicate', [bountyId, submissionUrl, note], 0n, onHash)
+
 // cancel_open_bounty is @gl.public.write
 export const cancelBounty = (acc: Address, bountyId: string, onHash?: (h: string) => void) =>
   write(acc, 'cancel_open_bounty', [bountyId], 0n, onHash)

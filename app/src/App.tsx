@@ -5,7 +5,7 @@ import CurioBot from './components/CurioBot'
 import {
   connectWallet, getConnectedWallet, subscribeWallet,
   getContractHealth, listBounties, getBounty,
-  createBounty, submitSolution, adjudicate, cancelBounty,
+  createBounty, submitSolution, adjudicate, submitAndAdjudicate, cancelBounty,
   transactionUrl, contractAddress, networkName, studioImportUrl,
   type LearningBounty, type ContractHealth, type TxState,
 } from './lib/genlayer'
@@ -89,19 +89,18 @@ export default function App() {
     const bounty = bounties.find(b => b.bounty_id === bid)
     const title = bounty?.title || bid
 
-    setTx({ phase: 'submitting', label: 'Submitting solution…' })
+    // Start pipeline animation
+    setAdjPipeline({ active: true, stage: 1, bountyId: bid, bountyTitle: title })
+    setTx({ phase: 'submitting', label: 'Submitting & auto-adjudicating…' })
+
     try {
-      await submitSolution(account, bid, url, note, h => setTx({ phase: 'consensus', label: 'Submitting…', hash: h }))
+      // Single transaction: submit + adjudicate
+      await submitAndAdjudicate(account, bid, url, note, h => setTx({ phase: 'consensus', label: 'AI evaluating…', hash: h }))
       addAct('submitted', bid, 'Solution submitted')
 
-      // Start pipeline animation
-      setAdjPipeline({ active: true, stage: 1, bountyId: bid, bountyTitle: title })
-      await new Promise(r => setTimeout(r, 1500))
-
-      // Stage 2: Leader evaluation
+      // Stage 2: Leader
       setAdjPipeline({ active: true, stage: 2, bountyId: bid, bountyTitle: title })
-      setTx({ phase: 'consensus', label: 'Leader evaluating…' })
-      await adjudicate(account, bid, h => setTx({ phase: 'consensus', label: 'Validators comparing…', hash: h }))
+      await new Promise(r => setTimeout(r, 1000))
 
       // Stage 3: Validator
       setAdjPipeline({ active: true, stage: 3, bountyId: bid, bountyTitle: title })
@@ -113,7 +112,7 @@ export default function App() {
 
       // Refresh to get verdict
       await refresh()
-      const updated = bounties.find(b => b.bounty_id === bid) || bounty
+      const updated = bounties.find(b => b.bounty_id === bid)
 
       // Stage 5: Verdict
       setAdjPipeline({

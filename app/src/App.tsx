@@ -232,26 +232,26 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Execution Cycle Bar */}
-              <div className="exec-bar">
-                {[
-                  { step: '01', label: 'CREATE', icon: '🟢', active: statusCounts.open > 0, done: statusCounts.open === 0 && bounties.length > 0 },
-                  { step: '02', label: 'SUBMIT', icon: '📩', active: statusCounts.submitted > 0, done: false },
-                  { step: '03', label: 'EVALUATE', icon: '⚖️', active: statusCounts.submitted > 0, done: false },
-                  { step: '04', label: 'RESOLVE', icon: '✅', active: false, done: statusCounts.paid > 0 || statusCounts.refunded > 0 },
-                ].map((s, i) => (
-                  <div key={s.step} className={`exec-step ${s.active ? 'es-active' : ''} ${s.done ? 'es-done' : ''}`}>
-                    <div className="es-num">{s.step}</div>
-                    <div className="es-label">{s.label}</div>
-                    {i < 3 && <div className="es-connector"><div className="es-particle"></div></div>}
-                  </div>
-                ))}
-              </div>
+              {/* Unified Flow: Execution Steps + Nodes + Outcomes + Chart in one row */}
+              <div className="lc-unified">
+                {/* Execution Steps */}
+                <div className="lc-steps">
+                  {[
+                    { step: '01', label: 'CREATE', active: statusCounts.open > 0, done: bounties.length > 0 && statusCounts.open === 0 },
+                    { step: '02', label: 'SUBMIT', active: statusCounts.submitted > 0 },
+                    { step: '03', label: 'EVAL', active: statusCounts.submitted > 0 },
+                    { step: '04', label: 'RESOLVE', done: statusCounts.paid > 0 || statusCounts.refunded > 0 },
+                  ].map((s, i) => (
+                    <div key={s.step} className={`ls-step ${s.active ? 'ls-active' : ''} ${s.done ? 'ls-done' : ''}`}>
+                      <span className="ls-num">{s.step}</span>
+                      <span className="ls-label">{s.label}</span>
+                      {i < 3 && <div className="ls-conn"><div className="ls-particle"></div></div>}
+                    </div>
+                  ))}
+                </div>
 
-              {/* Main Flow + Chart */}
-              <div className="lc-body">
-                {/* Flow Nodes */}
-                <div className="lc-flow">
+                {/* Flow Nodes + Arrows */}
+                <div className="lc-nodes">
                   <div className={`lc-node ${statusCounts.open > 0 ? 'ln-active' : bounties.length > 0 ? 'ln-done' : ''}`}>
                     <div className="ln-ring"><span>01</span></div>
                     <div className="ln-box">
@@ -268,7 +268,7 @@ export default function App() {
                     <div className="ln-ring"><span>02</span></div>
                     <div className="ln-box">
                       <div className="ln-icon">📩</div>
-                      <div className="ln-label">SUBMITTED</div>
+                      <div className="ln-label">SUBMIT</div>
                       <div className="ln-sub">Submit URL</div>
                     </div>
                     {statusCounts.submitted > 0 && <div className="ln-badge">{statusCounts.submitted}</div>}
@@ -287,6 +287,7 @@ export default function App() {
 
                   <div className="lc-arrow"><div className="la-track"><div className="la-dot"></div><div className="la-dot d2"></div></div></div>
 
+                  {/* Outcomes inline */}
                   <div className="lc-outcomes">
                     {[
                       { key: 'paid', icon: '✅', label: 'PAID', count: statusCounts.paid, color: '#3fb950' },
@@ -303,14 +304,14 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Mini Distribution Chart */}
+                {/* Bar Chart */}
                 <div className="lc-chart">
-                  <div className="lc-chart-title">STATUS DISTRIBUTION</div>
+                  <div className="lc-chart-title">DISTRIBUTION</div>
                   <div className="lc-bars">
                     {statusDistribution.map(s => (
                       <div key={s.key} className="lc-bar-col">
                         <div className="lc-bar-wrap">
-                          <div className="lc-bar-fill" style={{ height: `${Math.max(s.pct, 8)}%`, background: s.color }}></div>
+                          <div className="lc-bar-fill" style={{ height: `${Math.max(s.pct, 10)}%`, background: s.color }}></div>
                         </div>
                         <div className="lc-bar-label">{s.label.slice(0, 4)}</div>
                         <div className="lc-bar-val">{s.count}</div>
@@ -320,13 +321,13 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Live Ticker */}
+              {/* Ticker */}
               <div className="lc-ticker">
                 <div className="lt-track">
-                  {bounties.slice(0, 8).map((b, i) => (
+                  {bounties.slice(0, 10).map(b => (
                     <span key={b.bounty_id} className="lt-item">
                       <span className="lt-dot" style={{ background: STATUS_META[b.status]?.color }}></span>
-                      <span className="lt-title">{truncate(b.title, 20)}</span>
+                      <span className="lt-title">{truncate(b.title, 22)}</span>
                       <span className="lt-status" style={{ color: STATUS_META[b.status]?.color }}>{STATUS_META[b.status]?.label}</span>
                       <span className="lt-score">{b.quality_score > 0 ? `${b.quality_score}/100` : '—'}</span>
                     </span>

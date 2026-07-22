@@ -6,7 +6,7 @@ interface ChatMsg { role: 'user' | 'assistant'; content: string; actions?: ChatA
 interface ChatAction { label: string; action: () => void; style?: string }
 type RobotMood = 'idle' | 'walking' | 'talking' | 'thinking' | 'waving' | 'excited'
 interface BountyFormData { id: string; title: string; brief: string; rubric: string; refUrl: string }
-interface BountyInfo { bounty_id: string; title: string; status: string; quality_score: number; verdict: string; reward_wei: number; brief: string; rubric: string; submission_url: string }
+interface BountyInfo { bounty_id: string; title: string; status: string; quality_score: number; criteria_met: number; verdict: string; reasoning: string; reward_wei: number; brief: string; rubric: string; submission_url: string }
 
 interface RobotProps {
   onConnectWallet: () => Promise<void>
@@ -121,6 +121,42 @@ Return ONLY valid JSON (no markdown): {"id":"slug","title":"title","brief":"desc
     } finally { setAdjudicating(null) }
   }
 
+  // ── Review adjudication results ──
+  const reviewVerdicts = () => {
+    const judged = bounties.filter(b => b.verdict !== 'pending' && b.verdict !== 'cancelled')
+    if (judged.length === 0) { addBotMsg('📋 No adjudication results to review yet.'); return }
+
+    let msg = `🔍 **AI Adjudication Review** (${judged.length} evaluated)\n\n`
+    judged.forEach(b => {
+      const icon = b.verdict === 'accept' ? '✅' : b.verdict === 'reject' ? '❌' : '🔄'
+      const payout = b.quality_score >= 70 ? 'PASS' : 'FAIL'
+      msg += `${icon} **${b.title}**\n`
+      msg += `   Score: ${b.quality_score}/100 | Criteria: ${b.criteria_met}/10 | Payout: ${payout}\n`
+      msg += `   Verdict: ${b.verdict.toUpperCase()}\n`
+      if (b.reasoning) msg += `   Reasoning: ${b.reasoning.slice(0, 100)}…\n`
+      msg += `\n`
+    })
+
+    msg += `━━━━━━━━━━━━━━━━━━━━━━\n`
+    msg += `📊 **Summary:**\n`
+    const accepted = judged.filter(b => b.verdict === 'accept').length
+    const rejected = judged.filter(b => b.verdict === 'reject').length
+    const moreInfo = judged.filter(b => b.verdict === 'more_info').length
+    const avgScore = Math.round(judged.reduce((a, b) => a + b.quality_score, 0) / judged.length)
+    msg += `• Accept: ${accepted} | Reject: ${rejected} | More Info: ${moreInfo}\n`
+    msg += `• Avg Score: ${avgScore}/100\n`
+    msg += `• Accept Rate: ${Math.round(accepted / judged.length * 100)}%\n\n`
+    msg += `Click any bounty below to review details or re-adjudge.`
+
+    const actions: ChatAction[] = judged.map(b => ({
+      label: `📋 ${b.bounty_id} (${b.quality_score}/100)`,
+      action: () => onViewBounty(b.bounty_id),
+      style: b.verdict === 'accept' ? 'primary' : 'danger'
+    }))
+
+    addBotMsg(msg, actions)
+  }
+
   // ── Check bounties and show adjudge options ──
   const checkBounties = () => {
     if (bounties.length === 0) { addBotMsg('📋 No bounties found. Want me to create one?'); return }
@@ -208,7 +244,7 @@ Return ONLY valid JSON (no markdown): {"id":"slug","title":"title","brief":"desc
       setIsTyping(false); setMood('idle'); return
     }
 
-    // Adjudge specific bounty
+    // Adjudge
     if (lower.includes('adjudge') || lower.includes('adjudicate') || lower.includes('judge') || lower.includes('evaluate')) {
       const idMatch = text.match(/(?:adjudge|adjudicate|judge|evaluate)\s+([a-z0-9-]+)/i)
       if (idMatch) {
@@ -225,20 +261,31 @@ Return ONLY valid JSON (no markdown): {"id":"slug","title":"title","brief":"desc
       setIsTyping(false); setMood('idle'); return
     }
 
+    // Review verdicts
+    if (lower.includes('review') || lower.includes('verdict') || lower.includes('result') || lower.includes('check adjudication')) {
+      reviewVerdicts()
+      setIsTyping(false); setMood('idle'); return
+    }
+
+    // Adjudication info
+    if (lower === 'adjudication' || lower === 'how adjudication' || lower === 'how does adjudication work') {
+      addBotMsg(`⚖️ **How Adjudication Works**\n\n` +
+        `1️⃣ **Requester** creates bounty with rubric (scoring criteria)\n` +
+        `2️⃣ **Contributor** submits solution URL\n` +
+        `3️⃣ **AI Agent** fetches evidence, evaluates against rubric\n` +
+        `4️⃣ **Validator** independently re-evaluates\n` +
+        `5️⃣ **Consensus** compares: decision, score (±10), criteria (±1)\n` +
+        `6️⃣ **Verdict**: Accept (≥70) → Pay | Reject (<70) → Refund | More Info → Resubmit\n\n` +
+        `**Commands:**\n` +
+        `• "adjudge" — run AI evaluation on pending bounties\n` +
+        `• "review" — review past adjudication results\n` +
+        `• "adjudge [id]" — evaluate specific bounty`)
+      setIsTyping(false); setMood('idle'); return
+    }
+
     // How it works
     if (lower.includes('how') || lower === 'help' || lower.includes('what is this')) {
-      addBotMsg(`📖 How Curio works:
-
-1️⃣ **Create Bounty** — Escrow GEN, describe your task
-2️⃣ **Submit Solution** — Contributors submit work URLs
-3️⃣ **Adjudge** — 5 GenLayer AI validators evaluate independently
-4️⃣ **Get Paid** — Score ≥70 → contributor gets GEN. Score <70 → requester refund.
-
-**Commands:**
-• "create [description]" — fill bounty form
-• "check" — show all bounty statuses
-• "adjudge" — evaluate all pending bounties
-• "adjudge [id]" — evaluate specific bounty`)
+      addBotMsg(`📖 How Curio works:\n\n1️⃣ **Create Bounty** — Escrow GEN, describe your task\n2️⃣ **Submit Solution** — Contributors submit work URLs\n3️⃣ **Adjudge** — 5 GenLayer AI validators evaluate independently\n4️⃣ **Get Paid** — Score ≥70 → contributor gets GEN. Score <70 → requester refund.\n\n**Commands:**\n• "create [description]" — fill bounty form\n• "check" — show all bounty statuses\n• "adjudge" — evaluate all pending bounties\n• "adjudge [id]" — evaluate specific bounty\n• "review" — review AI adjudication results\n• "adjudication" — how adjudication works`)
       setIsTyping(false); setMood('idle'); return
     }
 
@@ -257,12 +304,15 @@ Return ONLY valid JSON (no markdown): {"id":"slug","title":"title","brief":"desc
   }
 
   const submittedCount = bounties.filter(b => b.status === 'submitted').length
+  const judgedCount = bounties.filter(b => b.verdict !== 'pending' && b.verdict !== 'cancelled').length
   const quickActions = [
-    { label: '✨ Create Bounty', action: () => sendMessage('create a bounty') },
+    { label: '✨ Create', action: () => sendMessage('create a bounty') },
     { label: '🔍 Browse', action: () => sendMessage('browse') },
-    { label: '📊 Check Status', action: () => sendMessage('check status') },
+    { label: '📊 Status', action: () => sendMessage('check status') },
     ...(submittedCount > 0 ? [{ label: `⚖️ Adjudge (${submittedCount})`, action: () => adjudgeAll() }] : []),
-    ...(account ? [] : [{ label: '🔗 Connect Wallet', action: () => sendMessage('connect wallet') }]),
+    ...(judgedCount > 0 ? [{ label: `🔍 Review (${judgedCount})`, action: () => reviewVerdicts() }] : []),
+    { label: '📖 Adjudication', action: () => sendMessage('adjudication') },
+    ...(account ? [] : [{ label: '🔗 Wallet', action: () => sendMessage('connect wallet') }]),
   ]
 
   return (

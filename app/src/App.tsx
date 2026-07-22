@@ -221,87 +221,116 @@ export default function App() {
               <div className="metric-card"><span className="metric-val">{weiToGen(health.stats.total_refunded_wei)}</span><span className="metric-label">GEN Refunded</span></div>
             </div>
 
-            {/* Lifecycle */}
-            <div className="card lifecycle-card">
+            {/* ── Bounty Lifecycle ── */}
+            <div className="card lifecycle-card v2">
               <div className="lc-header">
                 <h3>BOUNTY LIFECYCLE</h3>
-                <div className="lc-legend">
-                  <span className="lc-leg lc-leg-idle">IDLE</span>
-                  <span className="lc-leg lc-leg-active">ACTIVE</span>
-                  <span className="lc-leg lc-leg-done">DONE</span>
+                <div className="lc-live">
+                  <span className="lc-pulse"></span>
+                  <span>LIVE</span>
+                  <span className="lc-count">{bounties.length}</span>
                 </div>
               </div>
-              <div className="flow-track">
-                {/* Step 1: Open */}
-                <div className={`flow-step ${statusCounts.open > 0 ? 'fs-active' : bounties.length > 0 ? 'fs-done' : ''}`}>
-                  <div className="fs-dot"><span>01</span></div>
-                  <div className="fs-box">
-                    <div className="fs-icon">🟢</div>
-                    <div className="fs-label">OPEN</div>
-                    <div className="fs-sub">Escrow GEN</div>
-                    {statusCounts.open > 0 && <div className="fs-count">{statusCounts.open}</div>}
+
+              {/* Execution Cycle Bar */}
+              <div className="exec-bar">
+                {[
+                  { step: '01', label: 'CREATE', icon: '🟢', active: statusCounts.open > 0, done: statusCounts.open === 0 && bounties.length > 0 },
+                  { step: '02', label: 'SUBMIT', icon: '📩', active: statusCounts.submitted > 0, done: false },
+                  { step: '03', label: 'EVALUATE', icon: '⚖️', active: statusCounts.submitted > 0, done: false },
+                  { step: '04', label: 'RESOLVE', icon: '✅', active: false, done: statusCounts.paid > 0 || statusCounts.refunded > 0 },
+                ].map((s, i) => (
+                  <div key={s.step} className={`exec-step ${s.active ? 'es-active' : ''} ${s.done ? 'es-done' : ''}`}>
+                    <div className="es-num">{s.step}</div>
+                    <div className="es-label">{s.label}</div>
+                    {i < 3 && <div className="es-connector"><div className="es-particle"></div></div>}
                   </div>
-                </div>
-                {/* Arrow 1 */}
-                <div className="flow-connector">
-                  <div className="fc-line"><div className="fc-particle"></div></div>
-                  <div className="fc-chevron">›</div>
-                </div>
-                {/* Step 2: Submitted */}
-                <div className={`flow-step ${statusCounts.submitted > 0 ? 'fs-active' : statusCounts.open > 0 || statusCounts.submitted > 0 ? '' : bounties.some(b => ['paid','refunded','more_info'].includes(b.status)) ? 'fs-done' : ''}`}>
-                  <div className="fs-dot"><span>02</span></div>
-                  <div className="fs-box">
-                    <div className="fs-icon">📩</div>
-                    <div className="fs-label">SUBMITTED</div>
-                    <div className="fs-sub">Submit URL</div>
-                    {statusCounts.submitted > 0 && <div className="fs-count">{statusCounts.submitted}</div>}
+                ))}
+              </div>
+
+              {/* Main Flow + Chart */}
+              <div className="lc-body">
+                {/* Flow Nodes */}
+                <div className="lc-flow">
+                  <div className={`lc-node ${statusCounts.open > 0 ? 'ln-active' : bounties.length > 0 ? 'ln-done' : ''}`}>
+                    <div className="ln-ring"><span>01</span></div>
+                    <div className="ln-box">
+                      <div className="ln-icon">🟢</div>
+                      <div className="ln-label">OPEN</div>
+                      <div className="ln-sub">Escrow GEN</div>
+                    </div>
+                    {statusCounts.open > 0 && <div className="ln-badge">{statusCounts.open}</div>}
                   </div>
-                </div>
-                {/* Arrow 2 */}
-                <div className="flow-connector">
-                  <div className="fc-line"><div className="fc-particle"></div></div>
-                  <div className="fc-chevron">›</div>
-                </div>
-                {/* Step 3: Consensus */}
-                <div className={`flow-step ${statusCounts.submitted > 0 ? 'fs-active' : ''}`}>
-                  <div className="fs-dot"><span>03</span></div>
-                  <div className="fs-box">
-                    <div className="fs-icon">⚖️</div>
-                    <div className="fs-label">CONSENSUS</div>
-                    <div className="fs-sub">AI Evaluates</div>
+
+                  <div className="lc-arrow"><div className="la-track"><div className="la-dot"></div><div className="la-dot d2"></div></div></div>
+
+                  <div className={`lc-node ${statusCounts.submitted > 0 ? 'ln-active' : ''}`}>
+                    <div className="ln-ring"><span>02</span></div>
+                    <div className="ln-box">
+                      <div className="ln-icon">📩</div>
+                      <div className="ln-label">SUBMITTED</div>
+                      <div className="ln-sub">Submit URL</div>
+                    </div>
+                    {statusCounts.submitted > 0 && <div className="ln-badge">{statusCounts.submitted}</div>}
                   </div>
-                </div>
-                {/* Arrow 3 — branches */}
-                <div className="flow-connector">
-                  <div className="fc-line"><div className="fc-particle"></div></div>
-                  <div className="fc-chevron">›</div>
-                </div>
-                {/* Outcomes */}
-                <div className="flow-outcomes-v2">
-                  <div className={`flow-outcome ${statusCounts.paid > 0 ? 'fo-hit' : ''}`}>
-                    <div className="fo-dot fo-green"></div>
-                    <div className="fs-box fo-box">
-                      <div className="fs-icon">✅</div>
-                      <div className="fs-label">PAID</div>
-                      {statusCounts.paid > 0 && <div className="fs-count">{statusCounts.paid}</div>}
+
+                  <div className="lc-arrow"><div className="la-track"><div className="la-dot"></div><div className="la-dot d2"></div></div></div>
+
+                  <div className={`lc-node ${statusCounts.submitted > 0 ? 'ln-active' : ''}`}>
+                    <div className="ln-ring"><span>03</span></div>
+                    <div className="ln-box">
+                      <div className="ln-icon">⚖️</div>
+                      <div className="ln-label">CONSENSUS</div>
+                      <div className="ln-sub">AI Evaluates</div>
                     </div>
                   </div>
-                  <div className={`flow-outcome ${statusCounts.refunded > 0 ? 'fo-hit' : ''}`}>
-                    <div className="fo-dot fo-orange"></div>
-                    <div className="fs-box fo-box">
-                      <div className="fs-icon">↩️</div>
-                      <div className="fs-label">REFUNDED</div>
-                      {statusCounts.refunded > 0 && <div className="fs-count">{statusCounts.refunded}</div>}
-                    </div>
+
+                  <div className="lc-arrow"><div className="la-track"><div className="la-dot"></div><div className="la-dot d2"></div></div></div>
+
+                  <div className="lc-outcomes">
+                    {[
+                      { key: 'paid', icon: '✅', label: 'PAID', count: statusCounts.paid, color: '#3fb950' },
+                      { key: 'refunded', icon: '↩️', label: 'REFUND', count: statusCounts.refunded, color: '#d29922' },
+                      { key: 'more_info', icon: '🔄', label: 'INFO', count: statusCounts.more_info, color: '#58a6ff' },
+                    ].map(o => (
+                      <div key={o.key} className={`lc-outcome ${o.count > 0 ? 'lo-hit' : ''}`}>
+                        <div className="lo-dot" style={{ background: o.color }}></div>
+                        <span className="lo-icon">{o.icon}</span>
+                        <span className="lo-label">{o.label}</span>
+                        {o.count > 0 && <span className="lo-count" style={{ background: o.color }}>{o.count}</span>}
+                      </div>
+                    ))}
                   </div>
-                  <div className={`flow-outcome ${statusCounts.more_info > 0 ? 'fo-hit' : ''}`}>
-                    <div className="fo-dot fo-yellow"></div>
-                    <div className="fs-box fo-box">
-                      <div className="fs-icon">🔄</div>
-                      <div className="fs-label">MORE INFO</div>
-                      {statusCounts.more_info > 0 && <div className="fs-count">{statusCounts.more_info}</div>}
-                    </div>
+                </div>
+
+                {/* Mini Distribution Chart */}
+                <div className="lc-chart">
+                  <div className="lc-chart-title">STATUS DISTRIBUTION</div>
+                  <div className="lc-bars">
+                    {statusDistribution.map(s => (
+                      <div key={s.key} className="lc-bar-col">
+                        <div className="lc-bar-wrap">
+                          <div className="lc-bar-fill" style={{ height: `${Math.max(s.pct, 8)}%`, background: s.color }}></div>
+                        </div>
+                        <div className="lc-bar-label">{s.label.slice(0, 4)}</div>
+                        <div className="lc-bar-val">{s.count}</div>
+                      </div>
+                    ))}
                   </div>
+                </div>
+              </div>
+
+              {/* Live Ticker */}
+              <div className="lc-ticker">
+                <div className="lt-track">
+                  {bounties.slice(0, 8).map((b, i) => (
+                    <span key={b.bounty_id} className="lt-item">
+                      <span className="lt-dot" style={{ background: STATUS_META[b.status]?.color }}></span>
+                      <span className="lt-title">{truncate(b.title, 20)}</span>
+                      <span className="lt-status" style={{ color: STATUS_META[b.status]?.color }}>{STATUS_META[b.status]?.label}</span>
+                      <span className="lt-score">{b.quality_score > 0 ? `${b.quality_score}/100` : '—'}</span>
+                    </span>
+                  ))}
                 </div>
               </div>
             </div>

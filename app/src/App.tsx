@@ -190,17 +190,85 @@ export default function App() {
 
             {/* Lifecycle */}
             <div className="card lifecycle-card">
-              <h3>Bounty Lifecycle</h3>
-              <div className="flow-diagram">
-                <div className="flow-node flow-open">🟢 Open<small>Requester escrows GEN</small></div>
-                <div className="flow-arrow">→</div>
-                <div className="flow-node flow-submitted">📩 Submitted<small>Contributor submits URL</small></div>
-                <div className="flow-arrow">→</div>
-                <div className="flow-node flow-consensus">⚖️ Consensus<small>Validators evaluate</small></div>
-                <div className="flow-outcomes">
-                  <div className="flow-branch"><span className="flow-arrow">→</span><div className="flow-node flow-paid">✅ Paid</div></div>
-                  <div className="flow-branch"><span className="flow-arrow">→</span><div className="flow-node flow-refunded">↩️ Refunded</div></div>
-                  <div className="flow-branch"><span className="flow-arrow">→</span><div className="flow-node flow-moreinfo">🔄 More Info</div></div>
+              <div className="lc-header">
+                <h3>BOUNTY LIFECYCLE</h3>
+                <div className="lc-legend">
+                  <span className="lc-leg lc-leg-idle">IDLE</span>
+                  <span className="lc-leg lc-leg-active">ACTIVE</span>
+                  <span className="lc-leg lc-leg-done">DONE</span>
+                </div>
+              </div>
+              <div className="flow-track">
+                {/* Step 1: Open */}
+                <div className={`flow-step ${statusCounts.open > 0 ? 'fs-active' : bounties.length > 0 ? 'fs-done' : ''}`}>
+                  <div className="fs-dot"><span>01</span></div>
+                  <div className="fs-box">
+                    <div className="fs-icon">🟢</div>
+                    <div className="fs-label">OPEN</div>
+                    <div className="fs-sub">Escrow GEN</div>
+                    {statusCounts.open > 0 && <div className="fs-count">{statusCounts.open}</div>}
+                  </div>
+                </div>
+                {/* Arrow 1 */}
+                <div className="flow-connector">
+                  <div className="fc-line"><div className="fc-particle"></div></div>
+                  <div className="fc-chevron">›</div>
+                </div>
+                {/* Step 2: Submitted */}
+                <div className={`flow-step ${statusCounts.submitted > 0 ? 'fs-active' : statusCounts.open > 0 || statusCounts.submitted > 0 ? '' : bounties.some(b => ['paid','refunded','more_info'].includes(b.status)) ? 'fs-done' : ''}`}>
+                  <div className="fs-dot"><span>02</span></div>
+                  <div className="fs-box">
+                    <div className="fs-icon">📩</div>
+                    <div className="fs-label">SUBMITTED</div>
+                    <div className="fs-sub">Submit URL</div>
+                    {statusCounts.submitted > 0 && <div className="fs-count">{statusCounts.submitted}</div>}
+                  </div>
+                </div>
+                {/* Arrow 2 */}
+                <div className="flow-connector">
+                  <div className="fc-line"><div className="fc-particle"></div></div>
+                  <div className="fc-chevron">›</div>
+                </div>
+                {/* Step 3: Consensus */}
+                <div className={`flow-step ${statusCounts.submitted > 0 ? 'fs-active' : ''}`}>
+                  <div className="fs-dot"><span>03</span></div>
+                  <div className="fs-box">
+                    <div className="fs-icon">⚖️</div>
+                    <div className="fs-label">CONSENSUS</div>
+                    <div className="fs-sub">AI Evaluates</div>
+                  </div>
+                </div>
+                {/* Arrow 3 — branches */}
+                <div className="flow-connector">
+                  <div className="fc-line"><div className="fc-particle"></div></div>
+                  <div className="fc-chevron">›</div>
+                </div>
+                {/* Outcomes */}
+                <div className="flow-outcomes-v2">
+                  <div className={`flow-outcome ${statusCounts.paid > 0 ? 'fo-hit' : ''}`}>
+                    <div className="fo-dot fo-green"></div>
+                    <div className="fs-box fo-box">
+                      <div className="fs-icon">✅</div>
+                      <div className="fs-label">PAID</div>
+                      {statusCounts.paid > 0 && <div className="fs-count">{statusCounts.paid}</div>}
+                    </div>
+                  </div>
+                  <div className={`flow-outcome ${statusCounts.refunded > 0 ? 'fo-hit' : ''}`}>
+                    <div className="fo-dot fo-orange"></div>
+                    <div className="fs-box fo-box">
+                      <div className="fs-icon">↩️</div>
+                      <div className="fs-label">REFUNDED</div>
+                      {statusCounts.refunded > 0 && <div className="fs-count">{statusCounts.refunded}</div>}
+                    </div>
+                  </div>
+                  <div className={`flow-outcome ${statusCounts.more_info > 0 ? 'fo-hit' : ''}`}>
+                    <div className="fo-dot fo-yellow"></div>
+                    <div className="fs-box fo-box">
+                      <div className="fs-icon">🔄</div>
+                      <div className="fs-label">MORE INFO</div>
+                      {statusCounts.more_info > 0 && <div className="fs-count">{statusCounts.more_info}</div>}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

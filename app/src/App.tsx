@@ -336,6 +336,108 @@ export default function App() {
               </div>
             </div>
 
+            {/* ── Adjudication Pipeline Diagram ── */}
+            <div className="card adj-pipeline-card">
+              <div className="ap-header">
+                <h3>ADJUDICATION PIPELINE</h3>
+                <div className="ap-legend">
+                  <span className="ap-leg ap-leg-det">DETERMINISTIC</span>
+                  <span className="ap-leg ap-leg-nondet">NON-DETERMINISTIC</span>
+                  <span className="ap-leg ap-leg-cons">CONSENSUS</span>
+                </div>
+              </div>
+              <div className="ap-flow">
+                {/* Stage 1: Evidence Fetch */}
+                <div className="ap-stage">
+                  <div className="ap-node ap-det">
+                    <div className="ap-icon">🌐</div>
+                    <div className="ap-label">EVIDENCE</div>
+                    <div className="ap-sub">Fetch & Normalize</div>
+                  </div>
+                  <div className="ap-detail">
+                    <div className="ap-detail-row">submission_url</div>
+                    <div className="ap-detail-row">reference_url</div>
+                    <div className="ap-detail-row">contributor note</div>
+                  </div>
+                </div>
+
+                <div className="ap-arrow"><div className="ap-arrow-track"><div className="ap-arrow-dot"></div></div><div className="ap-arrow-chev">›</div></div>
+
+                {/* Stage 2: Leader Evaluation */}
+                <div className="ap-stage">
+                  <div className="ap-node ap-nondet">
+                    <div className="ap-icon">🤖</div>
+                    <div className="ap-label">LEADER</div>
+                    <div className="ap-sub">LLM Evaluation</div>
+                  </div>
+                  <div className="ap-detail">
+                    <div className="ap-detail-row">exec_prompt()</div>
+                    <div className="ap-detail-row">response_format=json</div>
+                    <div className="ap-detail-row">score + verdict</div>
+                  </div>
+                </div>
+
+                <div className="ap-arrow"><div className="ap-arrow-track"><div className="ap-arrow-dot"></div></div><div className="ap-arrow-chev">›</div></div>
+
+                {/* Stage 3: Validator Re-eval */}
+                <div className="ap-stage">
+                  <div className="ap-node ap-nondet">
+                    <div className="ap-icon">🔍</div>
+                    <div className="ap-label">VALIDATOR</div>
+                    <div className="ap-sub">Independent Re-eval</div>
+                  </div>
+                  <div className="ap-detail">
+                    <div className="ap-detail-row">same prompt</div>
+                    <div className="ap-detail-row">own LLM call</div>
+                    <div className="ap-detail-row">own score</div>
+                  </div>
+                </div>
+
+                <div className="ap-arrow"><div className="ap-arrow-track"><div className="ap-arrow-dot"></div></div><div className="ap-arrow-chev">›</div></div>
+
+                {/* Stage 4: Compare */}
+                <div className="ap-stage">
+                  <div className="ap-node ap-cons">
+                    <div className="ap-icon">⚖️</div>
+                    <div className="ap-label">COMPARE</div>
+                    <div className="ap-sub">Substantive Check</div>
+                  </div>
+                  <div className="ap-detail">
+                    <div className="ap-detail-row">decision match?</div>
+                    <div className="ap-detail-row">score ≤ 10 diff?</div>
+                    <div className="ap-detail-row">criteria ≤ 1 diff?</div>
+                    <div className="ap-detail-row ap-highlight">payout boundary?</div>
+                  </div>
+                </div>
+
+                <div className="ap-arrow ap-arrow-final"><div className="ap-arrow-track"><div className="ap-arrow-dot"></div></div><div className="ap-arrow-chev">›</div></div>
+
+                {/* Stage 5: Verdict */}
+                <div className="ap-stage">
+                  <div className="ap-verdicts">
+                    <div className="ap-verdict ap-v-accept">
+                      <div className="ap-v-icon">✅</div>
+                      <div className="ap-v-label">ACCEPT</div>
+                      <div className="ap-v-rule">score ≥ 70</div>
+                      <div className="ap-v-action">→ Pay contributor</div>
+                    </div>
+                    <div className="ap-verdict ap-v-reject">
+                      <div className="ap-v-icon">❌</div>
+                      <div className="ap-v-label">REJECT</div>
+                      <div className="ap-v-rule">score &lt; 70</div>
+                      <div className="ap-v-action">→ Refund requester</div>
+                    </div>
+                    <div className="ap-verdict ap-v-info">
+                      <div className="ap-v-icon">🔄</div>
+                      <div className="ap-v-label">MORE INFO</div>
+                      <div className="ap-v-rule">incomplete</div>
+                      <div className="ap-v-action">→ Resubmit</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* ── Adjudication Metrics ── */}
             <div className="grid-4">
               <div className="metric-card v2"><div className="m-label">EVALUATIONS</div><div className="m-val">{adjudicationMetrics.total}</div><div className="m-sub">Total AI verdicts</div></div>

@@ -224,6 +224,12 @@ class CurioLearningBounties(gl.Contract):
         if first_submission:
             self.contributor_bounties.get_or_insert_default(sender).append(clean_id)
 
+    @gl.public.write
+    def submit_and_adjudicate(self, bounty_id: str, submission_url: str, note: str) -> None:
+        """Submit a solution and immediately trigger AI adjudication."""
+        self.submit_solution(bounty_id, submission_url, note)
+        self.adjudicate(bounty_id)
+
     @staticmethod
     def _normalize_untrusted_text(value: str, max_length: int) -> str:
         """Normalize untrusted web text without interpreting embedded instructions."""

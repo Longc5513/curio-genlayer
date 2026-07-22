@@ -1,6 +1,6 @@
 {
-  "installCommand": "cd app && npm install",
-  "buildCommand": "cd app && npm run build",
+  "framework": null,
   "outputDirectory": "app/dist",
-  "framework": "vite"
+  "buildCommand": "bash build.sh",
+  "installCommand": "echo skip"
 }

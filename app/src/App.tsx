@@ -462,7 +462,7 @@ function CreateView({ account, prefilled, onSubmit }: {
 
   const handleGenerate = async () => {
     if (!title.trim()) { setAiMsg('Enter a title first'); return }
-    setAiLoading(true); setAiMsg('Generating with MiMo AI…')
+    setAiLoading(true); setAiMsg('Generating with GenLayer Agent…')
     try { const r = await generateBountyBrief(title); setBrief(r.brief); setRubric(r.rubric); setAiMsg('✓ Generated — review and edit') }
     catch { setAiMsg('⚠ Failed — fill manually') } finally { setAiLoading(false) }
   }

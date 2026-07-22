@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "tsc -b --pretty false",
+    "build": "npx --no-install tsc -b && npx --no-install vite build",
+    "lint": "npx --no-install tsc -b --pretty false",
     "preview": "vite preview"
   },
   "dependencies": {

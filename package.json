@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "npm --prefix app run dev",
-    "build": "npm --prefix app run build",
+    "build": "npm --prefix app install && npm --prefix app run build",
     "lint": "npm --prefix app run lint",
     "test": "python -m pytest tests -q",
     "check": "python scripts/check_project.py",

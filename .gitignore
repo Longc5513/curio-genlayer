@@ -11,3 +11,5 @@ app/dist/
 coverage/
 deployment.local.json
 .DS_Store
+
+.vercel

@@ -119,6 +119,39 @@ export default function App() {
     bounties.forEach(b => { if (b.status in c) c[b.status]++ }); return c
   }, [bounties])
 
+  const adjudicationMetrics = useMemo(() => {
+    const judged = bounties.filter(b => b.verdict !== 'pending' && b.verdict !== 'cancelled')
+    if (judged.length === 0) return { total: 0, avgScore: 0, acceptRate: 0, avgCriteria: 0, highest: null as LearningBounty | null, lowest: null as LearningBounty | null }
+    const scores = judged.map(b => b.quality_score)
+    const accepted = judged.filter(b => b.verdict === 'accept').length
+    return {
+      total: judged.length,
+      avgScore: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length),
+      acceptRate: Math.round((accepted / judged.length) * 100),
+      avgCriteria: Math.round(judged.reduce((a, b) => a + b.criteria_met, 0) / judged.length * 10) / 10,
+      highest: judged.reduce((a, b) => a.quality_score > b.quality_score ? a : b),
+      lowest: judged.reduce((a, b) => a.quality_score < b.quality_score ? a : b),
+    }
+  }, [bounties])
+
+  const recentVerdicts = useMemo(() =>
+    bounties.filter(b => b.verdict !== 'pending' && b.verdict !== 'cancelled')
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+      .slice(0, 5)
+  , [bounties])
+
+  const statusDistribution = useMemo(() => {
+    const total = bounties.length || 1
+    return [
+      { key: 'open', label: 'Open', count: statusCounts.open, pct: Math.round(statusCounts.open / total * 100), color: '#3fb950' },
+      { key: 'submitted', label: 'Submitted', count: statusCounts.submitted, pct: Math.round(statusCounts.submitted / total * 100), color: '#58a6ff' },
+      { key: 'paid', label: 'Paid', count: statusCounts.paid, pct: Math.round(statusCounts.paid / total * 100), color: '#56d4a0' },
+      { key: 'refunded', label: 'Refunded', count: statusCounts.refunded, pct: Math.round(statusCounts.refunded / total * 100), color: '#f0883e' },
+      { key: 'more_info', label: 'Revision', count: statusCounts.more_info, pct: Math.round(statusCounts.more_info / total * 100), color: '#d29922' },
+      { key: 'cancelled', label: 'Cancelled', count: statusCounts.cancelled, pct: Math.round(statusCounts.cancelled / total * 100), color: '#7d8590' },
+    ].filter(s => s.count > 0)
+  }, [bounties, statusCounts])
+
   const topBounties = useMemo(() => [...bounties].sort((a, b) => b.reward_wei - a.reward_wei).slice(0, 5), [bounties])
 
   return (
@@ -273,10 +306,64 @@ export default function App() {
               </div>
             </div>
 
-            {/* Two columns */}
+            {/* ── Adjudication Metrics ── */}
+            <div className="grid-4">
+              <div className="metric-card v2"><div className="m-label">EVALUATIONS</div><div className="m-val">{adjudicationMetrics.total}</div><div className="m-sub">Total AI verdicts</div></div>
+              <div className="metric-card v2"><div className="m-label">AVG SCORE</div><div className="m-val" style={{ color: scoreColor(adjudicationMetrics.avgScore) }}>{adjudicationMetrics.avgScore}<span className="m-unit">/100</span></div><div className="m-sub">Quality average</div></div>
+              <div className="metric-card v2"><div className="m-label">ACCEPT RATE</div><div className="m-val" style={{ color: adjudicationMetrics.acceptRate >= 50 ? '#3fb950' : '#f85149' }}>{adjudicationMetrics.acceptRate}<span className="m-unit">%</span></div><div className="m-sub">Pass ratio</div></div>
+              <div className="metric-card v2"><div className="m-label">AVG CRITERIA</div><div className="m-val">{adjudicationMetrics.avgCriteria}<span className="m-unit">/10</span></div><div className="m-sub">Criteria met</div></div>
+            </div>
+
+            {/* ── Two columns: Verdicts + Distribution ── */}
+            <div className="grid-2">
+              {/* Recent Verdicts */}
+              <div className="card verdict-card">
+                <h3>⚖️ Recent Verdicts</h3>
+                {recentVerdicts.length > 0 ? recentVerdicts.map(b => (
+                  <div key={b.bounty_id} className="verdict-row" onClick={() => void viewBounty(b)}>
+                    <div className="vr-left">
+                      <span className={`vr-badge vr-${b.verdict}`}>{b.verdict === 'accept' ? 'PASS' : b.verdict === 'reject' ? 'FAIL' : 'INFO'}</span>
+                      <div className="vr-info">
+                        <div className="vr-title">{truncate(b.title, 32)}</div>
+                        <div className="vr-meta">{b.criteria_met}/10 criteria · {timeAgo(b.updated_at)}</div>
+                      </div>
+                    </div>
+                    <div className="vr-score" style={{ color: scoreColor(b.quality_score) }}>{b.quality_score}</div>
+                  </div>
+                )) : <p className="empty-sm">No verdicts yet.</p>}
+              </div>
+
+              {/* Status Distribution + Contract Health */}
+              <div className="card">
+                <h3>📊 Status Distribution</h3>
+                <div className="dist-bar">
+                  {statusDistribution.map(s => (
+                    <div key={s.key} className="dist-seg" style={{ width: `${s.pct}%`, background: s.color }} title={`${s.label}: ${s.count}`} />
+                  ))}
+                </div>
+                <div className="dist-legend">
+                  {statusDistribution.map(s => (
+                    <span key={s.key} className="dist-item"><span className="dist-dot" style={{ background: s.color }} />{s.label} ({s.count})</span>
+                  ))}
+                </div>
+
+                <div className="health-panel">
+                  <h3>🔗 Contract Health</h3>
+                  <div className="health-grid">
+                    <div className="hg-row"><span className="hg-label">Status</span><span className={`hg-val ${health.reachable ? 'hg-ok' : 'hg-err'}`}>{health.reachable ? '● Connected' : '○ Unreachable'}</span></div>
+                    <div className="hg-row"><span className="hg-label">Version</span><span className="hg-val">{health.version || '—'}</span></div>
+                    <div className="hg-row"><span className="hg-label">Network</span><span className="hg-val">{networkName}</span></div>
+                    <div className="hg-row"><span className="hg-label">Contract</span><span className="hg-val"><code>{shortAddr(contractAddress)}</code></span></div>
+                    {health.error && <div className="hg-row"><span className="hg-label">Error</span><span className="hg-val hg-err">{truncate(health.error, 60)}</span></div>}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Top Bounties + Activity ── */}
             <div className="grid-2">
               <div className="card">
-                <h3>💰 Top Bounties</h3>
+                <h3>🏆 Top Bounties</h3>
                 {topBounties.length > 0 ? topBounties.map(b => (
                   <div key={b.bounty_id} className="top-row" onClick={() => void viewBounty(b)}>
                     <span className="top-reward">{weiToGen(b.reward_wei)} GEN</span>
@@ -286,17 +373,29 @@ export default function App() {
                 )) : <p className="empty-sm">No bounties yet.</p>}
               </div>
               <div className="card">
-                <h3>📡 Activity</h3>
+                <h3>🔥 Activity</h3>
                 {activityFeed.length > 0 ? activityFeed.slice(0, 8).map(item => (
                   <div key={item.id} className="act-item"><span className="act-dot" style={{ background: item.type === 'adjudicated' ? '#3fb950' : '#58a6ff' }} /><span className="act-msg">{item.message}</span><span className="act-time">{timeAgo(new Date(item.timestamp).toISOString())}</span></div>
-                )) : <p className="empty-sm">No activity yet.</p>}
+                )) : <div className="empty-activity">
+                  <div className="ea-rows">
+                    {bounties.slice(0, 5).map(b => (
+                      <div key={b.bounty_id} className="ea-row">
+                        <span className="ea-dot" style={{ background: STATUS_META[b.status]?.color }} />
+                        <span className="ea-msg">{truncate(b.title, 28)}</span>
+                        <span className="ea-status" style={{ color: STATUS_META[b.status]?.color }}>{STATUS_META[b.status]?.label}</span>
+                        <span className="ea-time">{timeAgo(b.updated_at)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>}
               </div>
             </div>
 
-            {/* Actions */}
+            {/* ── Actions ── */}
             <div className="actions-grid">
               <button className="action-card" onClick={() => nav('create')}><span className="action-icon">✨</span><strong>Create Bounty</strong><p>Escrow GEN for a deliverable</p></button>
               <button className="action-card" onClick={() => nav('browse')}><span className="action-icon">🔍</span><strong>Browse</strong><p>View all bounties</p></button>
+              <button className="action-card" onClick={() => nav('my-bounties')}><span className="action-icon">📋</span><strong>My Bounties</strong><p>Manage your bounties</p></button>
               <a className="action-card" href={studioImportUrl} target="_blank" rel="noreferrer"><span className="action-icon">🔧</span><strong>Studio ↗</strong><p>View contract</p></a>
             </div>
 

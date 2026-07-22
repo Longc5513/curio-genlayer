@@ -1,6 +1,6 @@
 {
-  "rootDirectory": "app",
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
+  "installCommand": "npm --prefix app install",
+  "buildCommand": "npm --prefix app run build",
+  "outputDirectory": "app/dist",
   "framework": "vite"
 }

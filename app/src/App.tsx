@@ -408,37 +408,62 @@ export default function App() {
                   ))}
                 </div>
               </div>
-            </div>
 
-            {/* ── Adjudication Pipeline — Transparency Dashboard ── */}
-            <div className="card adj-pipeline-card">
-              <div className="ap-header">
-                <h3>ADJUDICATION PIPELINE</h3>
-                <div className="ap-legend">
-                  <span className="ap-leg ap-leg-det">DETERMINISTIC</span>
-                  <span className="ap-leg ap-leg-nondet">NON-DETERMINISTIC</span>
-                  <span className="ap-leg ap-leg-cons">CONSENSUS</span>
+              {/* Divider */}
+              <div className="lc-divider">
+                <span className="lc-div-line"></span>
+                <span className="lc-div-label">ADJUDICATION ENGINE</span>
+                <span className="lc-div-line"></span>
+              </div>
+
+              {/* Adjudication Pipeline inline */}
+              <div className="ap-inline">
+                <div className="ap-flow">
+                  <div className="ap-stage"><div className="ap-node ap-det"><div className="ap-icon">🌐</div><div className="ap-label">EVIDENCE</div><div className="ap-sub">Fetch & Normalize</div></div></div>
+                  <div className="ap-arrow"><div className="ap-arrow-track"><div className="ap-arrow-dot"></div></div><div className="ap-arrow-chev">›</div></div>
+                  <div className="ap-stage"><div className="ap-node ap-nondet"><div className="ap-icon">🤖</div><div className="ap-label">LEADER</div><div className="ap-sub">LLM Evaluation</div></div></div>
+                  <div className="ap-arrow"><div className="ap-arrow-track"><div className="ap-arrow-dot"></div></div><div className="ap-arrow-chev">›</div></div>
+                  <div className="ap-stage"><div className="ap-node ap-nondet"><div className="ap-icon">🔍</div><div className="ap-label">VALIDATOR</div><div className="ap-sub">Independent Re-eval</div></div></div>
+                  <div className="ap-arrow"><div className="ap-arrow-track"><div className="ap-arrow-dot"></div></div><div className="ap-arrow-chev">›</div></div>
+                  <div className="ap-stage"><div className="ap-node ap-cons"><div className="ap-icon">⚖️</div><div className="ap-label">COMPARE</div><div className="ap-sub">Substantive Check</div></div></div>
+                  <div className="ap-arrow ap-arrow-final"><div className="ap-arrow-track"><div className="ap-arrow-dot"></div></div><div className="ap-arrow-chev">›</div></div>
+                  <div className="ap-stage"><div className="ap-verdicts">
+                    <div className="ap-verdict ap-v-accept"><div className="ap-v-icon">✅</div><div className="ap-v-label">ACCEPT</div><div className="ap-v-rule">score ≥ 70</div></div>
+                    <div className="ap-verdict ap-v-reject"><div className="ap-v-icon">❌</div><div className="ap-v-label">REJECT</div><div className="ap-v-rule">score &lt; 70</div></div>
+                    <div className="ap-verdict ap-v-info"><div className="ap-v-icon">🔄</div><div className="ap-v-label">MORE INFO</div><div className="ap-v-rule">incomplete</div></div>
+                  </div></div>
+                </div>
+
+                {/* Verdict Distribution + Metrics inline */}
+                <div className="ap-bottom-row">
+                  <div className="ap-verdict-bar">
+                    <div className="ap-vb-label">VERDICT DISTRIBUTION</div>
+                    <div className="ap-vb-track">
+                      {adjudicationMetrics.total > 0 ? (
+                        <>
+                          <div className="ap-vb-seg" style={{ width: `${Math.round(recentVerdicts.filter(b => b.verdict === 'accept').length / Math.max(recentVerdicts.length, 1) * 100)}%`, background: '#3fb950' }} />
+                          <div className="ap-vb-seg" style={{ width: `${Math.round(recentVerdicts.filter(b => b.verdict === 'reject').length / Math.max(recentVerdicts.length, 1) * 100)}%`, background: '#f85149' }} />
+                          <div className="ap-vb-seg" style={{ width: `${Math.round(recentVerdicts.filter(b => b.verdict === 'more_info').length / Math.max(recentVerdicts.length, 1) * 100)}%`, background: '#d29922' }} />
+                        </>
+                      ) : <div className="ap-vb-empty">No evaluations yet</div>}
+                    </div>
+                    <div className="ap-vb-legend">
+                      <span><span className="ap-vb-dot" style={{ background: '#3fb950' }} />Accept</span>
+                      <span><span className="ap-vb-dot" style={{ background: '#f85149' }} />Reject</span>
+                      <span><span className="ap-vb-dot" style={{ background: '#d29922' }} />More Info</span>
+                    </div>
+                  </div>
+
+                  <div className="ap-metrics-mini">
+                    <div className="ap-metric"><span className="ap-m-val">{adjudicationMetrics.total}</span><span className="ap-m-label">EVALS</span></div>
+                    <div className="ap-metric"><span className="ap-m-val" style={{ color: scoreColor(adjudicationMetrics.avgScore) }}>{adjudicationMetrics.avgScore}</span><span className="ap-m-label">AVG</span></div>
+                    <div className="ap-metric"><span className="ap-m-val" style={{ color: adjudicationMetrics.acceptRate >= 50 ? '#3fb950' : '#f85149' }}>{adjudicationMetrics.acceptRate}%</span><span className="ap-m-label">PASS</span></div>
+                    <div className="ap-metric"><span className="ap-m-val">{adjudicationMetrics.avgCriteria}</span><span className="ap-m-label">CRIT</span></div>
+                  </div>
                 </div>
               </div>
 
-              {/* Static Pipeline Diagram */}
-              <div className="ap-flow">
-                <div className="ap-stage"><div className="ap-node ap-det"><div className="ap-icon">🌐</div><div className="ap-label">EVIDENCE</div><div className="ap-sub">Fetch & Normalize</div></div></div>
-                <div className="ap-arrow"><div className="ap-arrow-track"><div className="ap-arrow-dot"></div></div><div className="ap-arrow-chev">›</div></div>
-                <div className="ap-stage"><div className="ap-node ap-nondet"><div className="ap-icon">🤖</div><div className="ap-label">LEADER</div><div className="ap-sub">LLM Evaluation</div></div></div>
-                <div className="ap-arrow"><div className="ap-arrow-track"><div className="ap-arrow-dot"></div></div><div className="ap-arrow-chev">›</div></div>
-                <div className="ap-stage"><div className="ap-node ap-nondet"><div className="ap-icon">🔍</div><div className="ap-label">VALIDATOR</div><div className="ap-sub">Independent Re-eval</div></div></div>
-                <div className="ap-arrow"><div className="ap-arrow-track"><div className="ap-arrow-dot"></div></div><div className="ap-arrow-chev">›</div></div>
-                <div className="ap-stage"><div className="ap-node ap-cons"><div className="ap-icon">⚖️</div><div className="ap-label">COMPARE</div><div className="ap-sub">Substantive Check</div></div></div>
-                <div className="ap-arrow ap-arrow-final"><div className="ap-arrow-track"><div className="ap-arrow-dot"></div></div><div className="ap-arrow-chev">›</div></div>
-                <div className="ap-stage"><div className="ap-verdicts">
-                  <div className="ap-verdict ap-v-accept"><div className="ap-v-icon">✅</div><div className="ap-v-label">ACCEPT</div><div className="ap-v-rule">score ≥ 70</div></div>
-                  <div className="ap-verdict ap-v-reject"><div className="ap-v-icon">❌</div><div className="ap-v-label">REJECT</div><div className="ap-v-rule">score &lt; 70</div></div>
-                  <div className="ap-verdict ap-v-info"><div className="ap-v-icon">🔄</div><div className="ap-v-label">MORE INFO</div><div className="ap-v-rule">incomplete</div></div>
-                </div></div>
-              </div>
-
-              {/* Real Adjudication Results — Transparency Table */}
+              {/* Transparency Table */}
               {recentVerdicts.length > 0 && (
                 <div className="ap-results">
                   <div className="ap-results-header">
@@ -469,33 +494,6 @@ export default function App() {
                   </div>
                 </div>
               )}
-
-              {/* Verdict Distribution Bar */}
-              <div className="ap-verdict-bar">
-                <div className="ap-vb-label">VERDICT DISTRIBUTION</div>
-                <div className="ap-vb-track">
-                  {adjudicationMetrics.total > 0 ? (
-                    <>
-                      <div className="ap-vb-seg" style={{ width: `${Math.round(recentVerdicts.filter(b => b.verdict === 'accept').length / Math.max(recentVerdicts.length, 1) * 100)}%`, background: '#3fb950' }} title={`Accept: ${recentVerdicts.filter(b => b.verdict === 'accept').length}`} />
-                      <div className="ap-vb-seg" style={{ width: `${Math.round(recentVerdicts.filter(b => b.verdict === 'reject').length / Math.max(recentVerdicts.length, 1) * 100)}%`, background: '#f85149' }} title={`Reject: ${recentVerdicts.filter(b => b.verdict === 'reject').length}`} />
-                      <div className="ap-vb-seg" style={{ width: `${Math.round(recentVerdicts.filter(b => b.verdict === 'more_info').length / Math.max(recentVerdicts.length, 1) * 100)}%`, background: '#d29922' }} title={`More Info: ${recentVerdicts.filter(b => b.verdict === 'more_info').length}`} />
-                    </>
-                  ) : <div className="ap-vb-empty">No evaluations yet</div>}
-                </div>
-                <div className="ap-vb-legend">
-                  <span><span className="ap-vb-dot" style={{ background: '#3fb950' }} />Accept</span>
-                  <span><span className="ap-vb-dot" style={{ background: '#f85149' }} />Reject</span>
-                  <span><span className="ap-vb-dot" style={{ background: '#d29922' }} />More Info</span>
-                </div>
-              </div>
-            </div>
-
-            {/* ── Adjudication Metrics ── */}
-            <div className="grid-4">
-              <div className="metric-card v2"><div className="m-label">EVALUATIONS</div><div className="m-val">{adjudicationMetrics.total}</div><div className="m-sub">Total AI verdicts</div></div>
-              <div className="metric-card v2"><div className="m-label">AVG SCORE</div><div className="m-val" style={{ color: scoreColor(adjudicationMetrics.avgScore) }}>{adjudicationMetrics.avgScore}<span className="m-unit">/100</span></div><div className="m-sub">Quality average</div></div>
-              <div className="metric-card v2"><div className="m-label">ACCEPT RATE</div><div className="m-val" style={{ color: adjudicationMetrics.acceptRate >= 50 ? '#3fb950' : '#f85149' }}>{adjudicationMetrics.acceptRate}<span className="m-unit">%</span></div><div className="m-sub">Pass ratio</div></div>
-              <div className="metric-card v2"><div className="m-label">AVG CRITERIA</div><div className="m-val">{adjudicationMetrics.avgCriteria}<span className="m-unit">/10</span></div><div className="m-sub">Criteria met</div></div>
             </div>
 
             {/* ── Two columns: Verdicts + Distribution ── */}

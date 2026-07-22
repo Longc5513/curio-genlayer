@@ -284,6 +284,57 @@ main { padding: 24px 32px; overflow-y: auto; max-height: 100vh; }
 
 /* ── Adjudication Pipeline ── */
 .adj-pipeline-card { margin-bottom: 14px; padding: 16px 20px; }
+
+/* ── Live Adjudication Banner ── */
+.adj-live-card { margin-bottom: 14px; padding: 16px 20px; border: 1px solid #238636 !important; background: #0d1117 !important; animation: liveBorder 2s ease infinite; }
+.al-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.al-title { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; letter-spacing: 2px; color: #3fb950; }
+.al-pulse { width: 10px; height: 10px; border-radius: 50%; background: #3fb950; animation: livePulse 1s ease infinite; }
+.al-bounty { font-size: 13px; font-weight: 600; color: #e6edf3; }
+
+.al-pipeline { display: flex; align-items: center; gap: 0; }
+.al-stage { display: flex; align-items: center; gap: 0; }
+.al-node { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 14px; border-radius: 8px; background: #161b22; border: 1px solid #21262d; min-width: 80px; transition: all 0.5s ease; }
+.al-icon { font-size: 18px; }
+.al-label { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; color: #484f58; font-family: monospace; }
+.al-sub { font-size: 8px; color: #30363d; }
+
+.al-stage.al-active .al-node { border-color: #238636; background: #0d1117; }
+.al-stage.al-active .al-label { color: #7d8590; }
+
+.al-stage.al-current .al-node { border-color: #3fb950; background: #0d3320; box-shadow: 0 0 16px rgba(63,185,80,0.3); animation: nodeGlow 1.5s ease infinite; }
+.al-stage.al-current .al-label { color: #3fb950; }
+.al-stage.al-current .al-sub { color: #8b949e; }
+
+.al-connector { width: 20px; height: 2px; background: #21262d; position: relative; overflow: hidden; margin: 0 2px; }
+.al-conn-dot { position: absolute; top: -2px; left: -6px; width: 6px; height: 6px; background: #3fb950; border-radius: 50%; animation: fastDot 0.8s linear infinite; box-shadow: 0 0 4px rgba(63,185,80,0.5); }
+
+.al-result { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 10px 16px; border-radius: 8px; animation: resultSlide 0.5s ease; }
+.al-result-icon { font-size: 20px; }
+.al-result-label { font-size: 12px; font-weight: 700; letter-spacing: 1px; font-family: monospace; }
+.al-result-score { font-size: 18px; font-weight: 800; font-family: monospace; margin-left: auto; }
+.al-accept { background: #0d3320; border: 1px solid #238636; }
+.al-accept .al-result-label { color: #3fb950; }
+.al-accept .al-result-score { color: #3fb950; }
+.al-reject { background: #3d1114; border: 1px solid #f85149; }
+.al-reject .al-result-label { color: #f85149; }
+.al-reject .al-result-score { color: #f85149; }
+.al-more_info { background: #3d2e00; border: 1px solid #d29922; }
+.al-more_info .al-result-label { color: #d29922; }
+.al-more_info .al-result-score { color: #d29922; }
+
+@keyframes liveBorder {
+  0%, 100% { border-color: #238636; }
+  50% { border-color: #3fb950; box-shadow: 0 0 20px rgba(63,185,80,0.15); }
+}
+@keyframes nodeGlow {
+  0%, 100% { box-shadow: 0 0 12px rgba(63,185,80,0.2); }
+  50% { box-shadow: 0 0 24px rgba(63,185,80,0.5); }
+}
+@keyframes resultSlide {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 .ap-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .ap-header h3 { font-size: 11px; letter-spacing: 2px; color: var(--muted); margin: 0; font-weight: 700; }
 .ap-legend { display: flex; gap: 6px; }

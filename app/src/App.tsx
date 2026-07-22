@@ -30,6 +30,7 @@ export default function App() {
   const [activityFeed, setActivityFeed] = useState<ActivityItem[]>([])
   const [browsePage, setBrowsePage] = useState(1)
   const [prefilled, setPrefilled] = useState<BountyFormData | null>(null)
+  const [adjPipeline, setAdjPipeline] = useState<{ active: boolean; stage: number; bountyId: string; bountyTitle: string; verdict?: string; score?: number }>({ active: false, stage: 0, bountyId: '', bountyTitle: '' })
   const PER_PAGE = 5
   const actRef = useRef<ActivityItem[]>([])
 
@@ -85,17 +86,53 @@ export default function App() {
 
   const handleAutoAdjudicate = async (bid: string, url: string, note: string) => {
     if (!account) return
+    const bounty = bounties.find(b => b.bounty_id === bid)
+    const title = bounty?.title || bid
+
     setTx({ phase: 'submitting', label: 'Submitting solution…' })
     try {
       await submitSolution(account, bid, url, note, h => setTx({ phase: 'consensus', label: 'Submitting…', hash: h }))
       addAct('submitted', bid, 'Solution submitted')
-      setTx({ phase: 'submitting', label: 'Running AI adjudication…' })
-      await new Promise(r => setTimeout(r, 2000))
-      await adjudicate(account, bid, h => setTx({ phase: 'consensus', label: 'AI evaluating…', hash: h }))
-      setTx({ phase: 'success', label: 'Adjudication complete!' }); addAct('adjudicated', bid, 'Adjudication complete')
-      await new Promise(r => setTimeout(r, 2000)); await refresh()
+
+      // Start pipeline animation
+      setAdjPipeline({ active: true, stage: 1, bountyId: bid, bountyTitle: title })
+      await new Promise(r => setTimeout(r, 1500))
+
+      // Stage 2: Leader evaluation
+      setAdjPipeline({ active: true, stage: 2, bountyId: bid, bountyTitle: title })
+      setTx({ phase: 'consensus', label: 'Leader evaluating…' })
+      await adjudicate(account, bid, h => setTx({ phase: 'consensus', label: 'Validators comparing…', hash: h }))
+
+      // Stage 3: Validator
+      setAdjPipeline({ active: true, stage: 3, bountyId: bid, bountyTitle: title })
+      await new Promise(r => setTimeout(r, 800))
+
+      // Stage 4: Compare
+      setAdjPipeline({ active: true, stage: 4, bountyId: bid, bountyTitle: title })
+      await new Promise(r => setTimeout(r, 800))
+
+      // Refresh to get verdict
+      await refresh()
+      const updated = bounties.find(b => b.bounty_id === bid) || bounty
+
+      // Stage 5: Verdict
+      setAdjPipeline({
+        active: true, stage: 5, bountyId: bid, bountyTitle: title,
+        verdict: updated?.verdict || 'accept', score: updated?.quality_score || 0
+      })
+
+      setTx({ phase: 'success', label: 'Adjudication complete!' })
+      addAct('adjudicated', bid, `Verdict: ${updated?.verdict || 'accept'} (${updated?.quality_score || 0}/100)`)
+
+      // Clear pipeline after 5s
+      await new Promise(r => setTimeout(r, 5000))
+      setAdjPipeline({ active: false, stage: 0, bountyId: '', bountyTitle: '' })
+
       try { setSelected(await getBounty(bid)) } catch { /* ok */ }
-    } catch (e) { setTx({ phase: 'error', label: 'Failed', error: cleanError(e) }) }
+    } catch (e) {
+      setAdjPipeline({ active: false, stage: 0, bountyId: '', bountyTitle: '' })
+      setTx({ phase: 'error', label: 'Failed', error: cleanError(e) })
+    }
   }
 
   const filtered = useMemo(() => {
@@ -220,6 +257,44 @@ export default function App() {
               <div className="metric-card"><span className="metric-val">{weiToGen(health.stats.total_paid_wei)}</span><span className="metric-label">GEN Paid</span></div>
               <div className="metric-card"><span className="metric-val">{weiToGen(health.stats.total_refunded_wei)}</span><span className="metric-label">GEN Refunded</span></div>
             </div>
+
+            {/* ── Live Adjudication Banner ── */}
+            {adjPipeline.active && (
+              <div className="card adj-live-card">
+                <div className="al-header">
+                  <div className="al-title">
+                    <span className="al-pulse"></span>
+                    <span>ADJUDICATING</span>
+                  </div>
+                  <div className="al-bounty">{adjPipeline.bountyTitle}</div>
+                </div>
+                <div className="al-pipeline">
+                  {[
+                    { id: 1, icon: '🌐', label: 'EVIDENCE', sub: 'Fetching URLs' },
+                    { id: 2, icon: '🤖', label: 'LEADER', sub: 'LLM Evaluation' },
+                    { id: 3, icon: '🔍', label: 'VALIDATOR', sub: 'Re-evaluation' },
+                    { id: 4, icon: '⚖️', label: 'COMPARE', sub: 'Consensus Check' },
+                    { id: 5, icon: '📋', label: 'VERDICT', sub: adjPipeline.verdict ? `${adjPipeline.verdict} (${adjPipeline.score}/100)` : 'Resolving' },
+                  ].map((s, i) => (
+                    <div key={s.id} className={`al-stage ${adjPipeline.stage >= s.id ? 'al-active' : ''} ${adjPipeline.stage === s.id ? 'al-current' : ''}`}>
+                      <div className="al-node">
+                        <div className="al-icon">{s.icon}</div>
+                        <div className="al-label">{s.label}</div>
+                        <div className="al-sub">{s.sub}</div>
+                      </div>
+                      {i < 4 && <div className="al-connector"><div className="al-conn-dot"></div></div>}
+                    </div>
+                  ))}
+                </div>
+                {adjPipeline.stage === 5 && adjPipeline.verdict && (
+                  <div className={`al-result al-${adjPipeline.verdict}`}>
+                    <span className="al-result-icon">{adjPipeline.verdict === 'accept' ? '✅' : adjPipeline.verdict === 'reject' ? '❌' : '🔄'}</span>
+                    <span className="al-result-label">{adjPipeline.verdict === 'accept' ? 'ACCEPTED' : adjPipeline.verdict === 'reject' ? 'REJECTED' : 'MORE INFO'}</span>
+                    <span className="al-result-score">{adjPipeline.score}/100</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* ── Bounty Lifecycle ── */}
             <div className="card lifecycle-card v2">
@@ -564,7 +639,23 @@ export default function App() {
           <BountyDetailView
             bounty={selected} account={account}
             onSubmitAndAdjudicate={handleAutoAdjudicate}
-            onAdjudicate={() => void withTx('Adjudicating', h => adjudicate(account!, selected.bounty_id, h), 'adjudicated', selected.bounty_id)}
+            onAdjudicate={async () => {
+              const bid = selected.bounty_id
+              setAdjPipeline({ active: true, stage: 1, bountyId: bid, bountyTitle: selected.title })
+              await new Promise(r => setTimeout(r, 1500))
+              setAdjPipeline({ active: true, stage: 2, bountyId: bid, bountyTitle: selected.title })
+              await withTx('Adjudicating', h => adjudicate(account!, bid, h), 'adjudicated', bid)
+              setAdjPipeline({ active: true, stage: 3, bountyId: bid, bountyTitle: selected.title })
+              await new Promise(r => setTimeout(r, 800))
+              setAdjPipeline({ active: true, stage: 4, bountyId: bid, bountyTitle: selected.title })
+              await new Promise(r => setTimeout(r, 800))
+              await refresh()
+              const updated = bounties.find(b => b.bounty_id === bid)
+              setAdjPipeline({ active: true, stage: 5, bountyId: bid, bountyTitle: selected.title, verdict: updated?.verdict, score: updated?.quality_score })
+              await new Promise(r => setTimeout(r, 5000))
+              setAdjPipeline({ active: false, stage: 0, bountyId: '', bountyTitle: '' })
+              try { setSelected(await getBounty(bid)) } catch {}
+            }}
             onCancel={() => void withTx('Cancelling', h => cancelBounty(account!, selected.bounty_id, h), 'refunded', selected.bounty_id)}
             onRefresh={async () => { setSelected(await getBounty(selected.bounty_id)); await refresh() }}
             onBack={() => nav('browse')}

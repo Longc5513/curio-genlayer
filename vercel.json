@@ -1,6 +1,6 @@
 {
-  "installCommand": "npm --prefix app install",
-  "buildCommand": "npm --prefix app run build",
+  "installCommand": "cd app && npm install",
+  "buildCommand": "cd app && npm run build",
   "outputDirectory": "app/dist",
   "framework": "vite"
 }

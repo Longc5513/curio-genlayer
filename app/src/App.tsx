@@ -196,7 +196,7 @@ export default function App() {
 
       {/* ── Sidebar ── */}
       <aside className={`sidebar ${mobileMenuOpen ? 'open' : ''}`}>
-        <div className="sidebar-brand"><div className="brand-icon">C</div><div><strong>Curio</strong><small>Learning Bounties · GenLayer</small></div></div>
+        <div className="sidebar-brand"><img src="/curiobot.png" alt="Curio" className="brand-logo" /><div><strong>Curio</strong><small>Learning Bounties · GenLayer</small></div></div>
         <nav>
           {([['dashboard','📊','Dashboard'],['browse','🔍','Browse'],['create','✨','Create'],['my-bounties','📋','My Bounties'],['my-submissions','📩','Submissions']] as [View,string,string][]).map(([v,icon,label]) =>
             <button key={v} className={view === v || (view === 'bounty' && v === 'browse') ? 'active' : ''} onClick={() => nav(v)}>{icon} {label}</button>
@@ -570,6 +570,85 @@ export default function App() {
                     ))}
                   </div>
                 </div>}
+              </div>
+            </div>
+
+            {/* ── Score Distribution + Criteria Analysis ── */}
+            <div className="grid-2">
+              {/* Score Distribution Histogram */}
+              <div className="card">
+                <h3>📊 Score Distribution</h3>
+                <div className="score-hist">
+                  {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90].map(low => {
+                    const high = low + 10
+                    const count = bounties.filter(b => b.quality_score >= low && b.quality_score < high && b.quality_score > 0).length
+                    const maxCount = Math.max(...[0, 10, 20, 30, 40, 50, 60, 70, 80, 90].map(l => bounties.filter(b => b.quality_score >= l && b.quality_score < l + 10 && b.quality_score > 0).length), 1)
+                    const pct = Math.round(count / maxCount * 100)
+                    const color = low >= 70 ? '#3fb950' : low >= 40 ? '#d29922' : '#f85149'
+                    return (
+                      <div key={low} className="sh-col">
+                        <div className="sh-bar-wrap">
+                          <div className="sh-bar" style={{ height: `${Math.max(pct, 4)}%`, background: color }} />
+                        </div>
+                        <div className="sh-label">{low}</div>
+                        <div className="sh-count">{count > 0 ? count : ''}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div className="sh-legend">
+                  <span><span className="sh-dot" style={{ background: '#f85149' }} />0-39 Fail</span>
+                  <span><span className="sh-dot" style={{ background: '#d29922' }} />40-69 Info</span>
+                  <span><span className="sh-dot" style={{ background: '#3fb950' }} />70-100 Pass</span>
+                </div>
+              </div>
+
+              {/* Criteria Analysis */}
+              <div className="card">
+                <h3>🎯 Criteria Analysis</h3>
+                <div className="criteria-grid">
+                  {(() => {
+                    const judged = bounties.filter(b => b.verdict !== 'pending' && b.verdict !== 'cancelled')
+                    if (judged.length === 0) return <p className="empty-sm">No evaluations yet.</p>
+                    const buckets = [
+                      { range: '0-2', min: 0, max: 2, color: '#f85149' },
+                      { range: '3-5', min: 3, max: 5, color: '#d29922' },
+                      { range: '6-8', min: 6, max: 8, color: '#58a6ff' },
+                      { range: '9-10', min: 9, max: 10, color: '#3fb950' },
+                    ]
+                    return buckets.map(b => {
+                      const count = judged.filter(j => j.criteria_met >= b.min && j.criteria_met <= b.max).length
+                      const pct = Math.round(count / judged.length * 100)
+                      return (
+                        <div key={b.range} className="cg-item">
+                          <div className="cg-header">
+                            <span className="cg-range">{b.range}</span>
+                            <span className="cg-count">{count}</span>
+                          </div>
+                          <div className="cg-bar-bg">
+                            <div className="cg-bar" style={{ width: `${pct}%`, background: b.color }} />
+                          </div>
+                          <div className="cg-pct">{pct}%</div>
+                        </div>
+                      )
+                    })
+                  })()}
+                </div>
+                <div className="cg-summary">
+                  {(() => {
+                    const judged = bounties.filter(b => b.verdict !== 'pending' && b.verdict !== 'cancelled')
+                    if (judged.length === 0) return null
+                    const avgCrit = (judged.reduce((a, b) => a + b.criteria_met, 0) / judged.length).toFixed(1)
+                    const highCrit = judged.filter(b => b.criteria_met >= 7).length
+                    return (
+                      <>
+                        <div className="cg-stat"><span className="cg-stat-val">{avgCrit}</span><span className="cg-stat-label">AVG CRITERIA</span></div>
+                        <div className="cg-stat"><span className="cg-stat-val">{highCrit}</span><span className="cg-stat-label">HIGH (≥7)</span></div>
+                        <div className="cg-stat"><span className="cg-stat-val">{judged.length}</span><span className="cg-stat-label">TOTAL</span></div>
+                      </>
+                    )
+                  })()}
+                </div>
               </div>
             </div>
 

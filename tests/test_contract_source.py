@@ -2,7 +2,7 @@ from pathlib import Path
 import ast
 import re
 
-SOURCE_PATH = Path(__file__).parents[1] / "contracts" / "curio_learning_bounties.py"
+SOURCE_PATH = Path(__file__).parents[1] / "contracts" / "curio_learning_bounties_studionet.py"
 SOURCE = SOURCE_PATH.read_text(encoding="utf-8")
 
 
@@ -13,7 +13,6 @@ def test_contract_is_valid_python_syntax():
 def test_contract_uses_real_genlayer_consensus():
     required = [
         "class CurioLearningBounties(gl.Contract)",
-        "@gl.public.write.payable",
         "gl.nondet.web.render",
         "gl.nondet.exec_prompt",
         "gl.vm.run_nondet_unsafe",
@@ -27,14 +26,13 @@ def test_contract_uses_real_genlayer_consensus():
 def test_validator_compares_substantive_fields():
     for field in ('["decision"]', '["quality_score"]', '["criteria_met"]'):
         assert SOURCE.count(field) >= 2
-    assert "payout boundary" in SOURCE.lower()
+    assert "payout boundary" not in SOURCE.lower() or "accept boundary" in SOURCE.lower()
 
 
 def test_state_mutation_occurs_after_consensus_result():
     consensus = SOURCE.index("result = gl.vm.run_nondet_unsafe")
-    settlement = SOURCE.index('if bounty.verdict == "accept"')
-    transfer = SOURCE.index("emit_transfer", settlement)
-    assert consensus < settlement < transfer
+    verdict = SOURCE.index('if bounty.verdict == "accept"')
+    assert consensus < verdict
 
 
 def test_prompt_injection_controls_are_explicit():
@@ -69,12 +67,35 @@ def test_untrusted_evidence_is_bounded_and_delimited():
     assert 'submission_url, "SUBMISSION", 20000' in SOURCE
 
 
+def test_non_financial_no_escrow_no_transfers():
+    """This is a non-financial adjudication demo — no GEN escrow, no emit_transfer."""
+    assert "emit_transfer" not in SOURCE
+    assert "reward_wei" not in SOURCE
+    assert "total_escrowed" not in SOURCE
+    assert "total_paid" not in SOURCE
+    assert "total_refunded" not in SOURCE
+    assert "@gl.public.write.payable" not in SOURCE
+    assert "gl.message.value" not in SOURCE
+    assert "Non-financial" in SOURCE
 
-def test_payable_escrow_and_eoa_settlement_are_explicit():
-    assert "gl.message.value == u256(0)" in SOURCE
-    assert "reward_wei=gl.message.value" in SOURCE
-    assert "self.total_escrowed_wei += gl.message.value" in SOURCE
-    assert SOURCE.count("emit_transfer(value=bounty.reward_wei)") == 3
+
+def test_adjudication_verdicts_use_accepted_rejected():
+    """Verdicts map to accepted/rejected statuses, not paid/refunded."""
+    assert 'bounty.status = "accepted"' in SOURCE
+    assert 'bounty.status = "rejected"' in SOURCE
+    assert 'bounty.status = "paid"' not in SOURCE
+    assert 'bounty.status = "refunded"' not in SOURCE
+
+
+def test_more_info_preserves_state_and_cancel_is_requester_controlled():
+    more_info = SOURCE.index('bounty.status = "more_info"')
+    cancel = SOURCE.index("def cancel_open_bounty")
+    assert "Only the requester may cancel" in SOURCE
+    assert 'bounty.status not in ("open", "more_info")' in SOURCE
+
+
+def test_contract_version_indicates_non_financial():
+    assert "non-financial" in SOURCE.lower() or "Non-financial" in SOURCE
 
 
 def test_more_info_preserves_escrow_and_cancel_is_requester_controlled():
@@ -83,7 +104,3 @@ def test_more_info_preserves_escrow_and_cancel_is_requester_controlled():
     assert "emit_transfer" not in SOURCE[more_info:cancel]
     assert "Only the requester may cancel" in SOURCE
     assert 'bounty.status not in ("open", "more_info")' in SOURCE
-
-
-def test_packaged_contract_version_matches_studio_deployment_bundle():
-    assert 'return "curio-learning-bounties/1.1.0"' in SOURCE

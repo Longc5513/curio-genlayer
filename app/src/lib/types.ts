@@ -1,5 +1,5 @@
 // ── Curio Learning Bounties Types ───────────────────────────────────
-// Matches contracts/curio_learning_bounties.py exactly
+// Non-financial StudioNet adjudication demo — no token escrow or settlement
 
 export interface LearningBounty {
   bounty_id: string
@@ -8,8 +8,7 @@ export interface LearningBounty {
   brief: string
   rubric: string
   reference_url: string
-  reward_wei: number
-  status: string           // open | submitted | paid | refunded | more_info | cancelled
+  status: string           // open | submitted | accepted | rejected | more_info | cancelled
   contributor: string
   submission_url: string
   submission_note: string
@@ -25,9 +24,7 @@ export interface LearningBounty {
 
 export interface ContractStats {
   bounty_count: number
-  total_escrowed_wei: number
-  total_paid_wei: number
-  total_refunded_wei: number
+  note: string
 }
 
 export interface ContractHealth {
@@ -44,12 +41,12 @@ export interface TxState { phase: TxPhase; label: string; hash?: string; error?:
 export type View = 'dashboard' | 'browse' | 'bounty' | 'create' | 'my-bounties' | 'my-submissions'
 
 export const STATUS_META: Record<string, { color: string; label: string; icon: string }> = {
-  open:        { color: '#3fb950', label: 'Open',           icon: '🟢' },
-  submitted:   { color: '#58a6ff', label: 'Submitted',      icon: '📩' },
-  paid:        { color: '#56d4a0', label: 'Paid',           icon: '✅' },
-  refunded:    { color: '#f0883e', label: 'Refunded',       icon: '↩️' },
-  more_info:   { color: '#d29922', label: 'Needs Revision', icon: '🔄' },
-  cancelled:   { color: '#7d8590', label: 'Cancelled',      icon: '❌' },
+  open:        { color: '#3fb950', label: 'Open',            icon: '🟢' },
+  submitted:   { color: '#58a6ff', label: 'Submitted',       icon: '📩' },
+  accepted:    { color: '#56d4a0', label: 'Accepted',        icon: '✅' },
+  rejected:    { color: '#f85149', label: 'Rejected',        icon: '❌' },
+  more_info:   { color: '#d29922', label: 'Needs Revision',  icon: '🔄' },
+  cancelled:   { color: '#7d8590', label: 'Cancelled',       icon: '⛔' },
 }
 
 export const VERDICT_META: Record<string, { color: string; label: string }> = {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
-import { shortAddr, weiToGen, scoreColor, verdictColor, cleanError, timeAgo, formatNumber, truncate } from './lib/format'
+import { shortAddr, scoreColor, verdictColor, cleanError, timeAgo, formatNumber, truncate } from './lib/format'
 import { generateBountyBrief, checkSubmissionQuality, improveDescription } from './lib/mimo-ai'
 import CurioBot from './components/CurioBot'
 import {
@@ -25,7 +25,7 @@ export default function App() {
   const [tx, setTx] = useState<TxState>({ phase: 'idle', label: '' })
   const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState<string>('all')
-  const [sortBy, setSortBy] = useState<'newest' | 'reward' | 'score'>('newest')
+  const [sortBy, setSortBy] = useState<'newest' | 'score'>('newest')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [activityFeed, setActivityFeed] = useState<ActivityItem[]>([])
   const [browsePage, setBrowsePage] = useState(1)
@@ -138,7 +138,6 @@ export default function App() {
     let r = [...bounties]
     if (filterStatus !== 'all') r = r.filter(b => b.status === filterStatus)
     switch (sortBy) {
-      case 'reward': r.sort((a, b) => b.reward_wei - a.reward_wei); break
       case 'score': r.sort((a, b) => b.quality_score - a.quality_score); break
       default: r.sort((a, b) => b.created_at.localeCompare(a.created_at))
     }
@@ -151,7 +150,7 @@ export default function App() {
   const nav = (v: View) => { setView(v); setSelected(null); setMobileMenuOpen(false); setBrowsePage(1) }
 
   const statusCounts = useMemo(() => {
-    const c: Record<string, number> = { open: 0, submitted: 0, paid: 0, refunded: 0, more_info: 0, cancelled: 0 }
+    const c: Record<string, number> = { open: 0, submitted: 0, accepted: 0, rejected: 0, more_info: 0, cancelled: 0 }
     bounties.forEach(b => { if (b.status in c) c[b.status]++ }); return c
   }, [bounties])
 
@@ -181,14 +180,14 @@ export default function App() {
     return [
       { key: 'open', label: 'Open', count: statusCounts.open, pct: Math.round(statusCounts.open / total * 100), color: '#3fb950' },
       { key: 'submitted', label: 'Submitted', count: statusCounts.submitted, pct: Math.round(statusCounts.submitted / total * 100), color: '#58a6ff' },
-      { key: 'paid', label: 'Paid', count: statusCounts.paid, pct: Math.round(statusCounts.paid / total * 100), color: '#56d4a0' },
-      { key: 'refunded', label: 'Refunded', count: statusCounts.refunded, pct: Math.round(statusCounts.refunded / total * 100), color: '#f0883e' },
+      { key: 'accepted', label: 'Accepted', count: statusCounts.accepted, pct: Math.round(statusCounts.accepted / total * 100), color: '#56d4a0' },
+      { key: 'rejected', label: 'Rejected', count: statusCounts.rejected, pct: Math.round(statusCounts.rejected / total * 100), color: '#f85149' },
       { key: 'more_info', label: 'Revision', count: statusCounts.more_info, pct: Math.round(statusCounts.more_info / total * 100), color: '#d29922' },
       { key: 'cancelled', label: 'Cancelled', count: statusCounts.cancelled, pct: Math.round(statusCounts.cancelled / total * 100), color: '#7d8590' },
     ].filter(s => s.count > 0)
   }, [bounties, statusCounts])
 
-  const topBounties = useMemo(() => [...bounties].sort((a, b) => b.reward_wei - a.reward_wei).slice(0, 5), [bounties])
+  const topBounties = useMemo(() => [...bounties].sort((a, b) => b.quality_score - a.quality_score).slice(0, 5), [bounties])
 
   return (
     <div className="app">
@@ -228,8 +227,6 @@ export default function App() {
           {health.stats && (
             <div className="topbar-stats">
               <span>📋 {formatNumber(health.stats.bounty_count)}</span>
-              <span>🔒 {weiToGen(health.stats.total_escrowed_wei)}</span>
-              <span>✅ {weiToGen(health.stats.total_paid_wei)}</span>
             </div>
           )}
         </header>
@@ -252,9 +249,6 @@ export default function App() {
             {/* Metrics */}
             <div className="metric-grid">
               <div className="metric-card"><span className="metric-val">{formatNumber(health.stats.bounty_count)}</span><span className="metric-label">Total Bounties</span></div>
-              <div className="metric-card"><span className="metric-val">{weiToGen(health.stats.total_escrowed_wei)}</span><span className="metric-label">GEN Escrowed</span></div>
-              <div className="metric-card"><span className="metric-val">{weiToGen(health.stats.total_paid_wei)}</span><span className="metric-label">GEN Paid</span></div>
-              <div className="metric-card"><span className="metric-val">{weiToGen(health.stats.total_refunded_wei)}</span><span className="metric-label">GEN Refunded</span></div>
             </div>
 
             {/* ── Live Adjudication Banner ── */}
@@ -314,7 +308,7 @@ export default function App() {
                     { step: '01', label: 'CREATE', active: statusCounts.open > 0, done: bounties.length > 0 && statusCounts.open === 0 },
                     { step: '02', label: 'SUBMIT', active: statusCounts.submitted > 0 },
                     { step: '03', label: 'EVAL', active: statusCounts.submitted > 0 },
-                    { step: '04', label: 'RESOLVE', done: statusCounts.paid > 0 || statusCounts.refunded > 0 },
+                    { step: '04', label: 'RESOLVE', done: statusCounts.accepted > 0 || statusCounts.rejected > 0 },
                   ].map((s, i) => (
                     <div key={s.step} className={`ls-step ${s.active ? 'ls-active' : ''} ${s.done ? 'ls-done' : ''}`}>
                       <span className="ls-num">{s.step}</span>
@@ -331,7 +325,7 @@ export default function App() {
                     <div className="ln-box">
                       <div className="ln-icon">🟢</div>
                       <div className="ln-label">OPEN</div>
-                      <div className="ln-sub">Escrow GEN</div>
+                      <div className="ln-sub">Create Brief</div>
                     </div>
                     {statusCounts.open > 0 && <div className="ln-badge">{statusCounts.open}</div>}
                   </div>
@@ -364,8 +358,8 @@ export default function App() {
                   {/* Outcomes inline */}
                   <div className="lc-outcomes">
                     {[
-                      { key: 'paid', icon: '✅', label: 'PAID', count: statusCounts.paid, color: '#3fb950' },
-                      { key: 'refunded', icon: '↩️', label: 'REFUND', count: statusCounts.refunded, color: '#d29922' },
+                      { key: 'accepted', icon: '✅', label: 'ACCEPT', count: statusCounts.accepted, color: '#3fb950' },
+                      { key: 'rejected', icon: '❌', label: 'REJECT', count: statusCounts.rejected, color: '#f85149' },
                       { key: 'more_info', icon: '🔄', label: 'INFO', count: statusCounts.more_info, color: '#58a6ff' },
                     ].map(o => (
                       <div key={o.key} className={`lc-outcome ${o.count > 0 ? 'lo-hit' : ''}`}>
@@ -476,7 +470,7 @@ export default function App() {
                       <span className="ap-th">EVIDENCE</span>
                       <span className="ap-th ap-th-center">SCORE</span>
                       <span className="ap-th ap-th-center">CRITERIA</span>
-                      <span className="ap-th ap-th-center">PAYOUT</span>
+                      <span className="ap-th ap-th-center">RESULT</span>
                       <span className="ap-th">VERDICT</span>
                       <span className="ap-th">REASONING</span>
                     </div>
@@ -486,7 +480,7 @@ export default function App() {
                         <span className="ap-td ap-td-url"><a href={b.submission_url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>{truncate(b.submission_url.replace('https://', ''), 20)}</a></span>
                         <span className="ap-td ap-td-center ap-td-score" style={{ color: scoreColor(b.quality_score) }}>{b.quality_score}</span>
                         <span className="ap-td ap-td-center">{b.criteria_met}/10</span>
-                        <span className="ap-td ap-td-center ap-td-payout" style={{ color: b.quality_score >= 70 ? '#3fb950' : '#f85149' }}>{b.quality_score >= 70 ? 'PASS' : 'FAIL'}</span>
+                        <span className="ap-td ap-td-center ap-td-payout" style={{ color: b.quality_score >= 70 ? '#3fb950' : '#f85149' }}>{b.quality_score >= 70 ? 'ACCEPTED' : 'REJECTED'}</span>
                         <span className="ap-td"><span className={`ap-verdict-badge ap-vb-${b.verdict}`}>{b.verdict === 'accept' ? '✅ ACCEPT' : b.verdict === 'reject' ? '❌ REJECT' : '🔄 INFO'}</span></span>
                         <span className="ap-td ap-td-reasoning">{truncate(b.reasoning, 60)}</span>
                       </div>
@@ -548,7 +542,7 @@ export default function App() {
                 <h3>🏆 Top Bounties</h3>
                 {topBounties.length > 0 ? topBounties.map(b => (
                   <div key={b.bounty_id} className="top-row" onClick={() => void viewBounty(b)}>
-                    <span className="top-reward">{weiToGen(b.reward_wei)} GEN</span>
+                    <span className="top-reward">{b.quality_score > 0 ? `${b.quality_score}/100` : '—'}</span>
                     <span className="top-title">{truncate(b.title, 50)}</span>
                     <span className="status-pill sm" style={{ color: STATUS_META[b.status]?.color, background: STATUS_META[b.status]?.color + '18' }}>{STATUS_META[b.status]?.label}</span>
                   </div>
@@ -654,7 +648,7 @@ export default function App() {
 
             {/* ── Actions ── */}
             <div className="actions-grid">
-              <button className="action-card" onClick={() => nav('create')}><span className="action-icon">✨</span><strong>Create Bounty</strong><p>Escrow GEN for a deliverable</p></button>
+              <button className="action-card" onClick={() => nav('create')}><span className="action-icon">✨</span><strong>Create Bounty</strong><p>Create a brief for a deliverable</p></button>
               <button className="action-card" onClick={() => nav('browse')}><span className="action-icon">🔍</span><strong>Browse</strong><p>View all bounties</p></button>
               <button className="action-card" onClick={() => nav('my-bounties')}><span className="action-icon">📋</span><strong>My Bounties</strong><p>Manage your bounties</p></button>
               <a className="action-card" href={studioImportUrl} target="_blank" rel="noreferrer"><span className="action-icon">🔧</span><strong>Studio ↗</strong><p>View contract</p></a>
@@ -673,7 +667,7 @@ export default function App() {
           <div className="browse-view">
             <div className="browse-filters">
               <div className="filter-group"><label>Status</label><select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setBrowsePage(1) }}><option value="all">All</option>{Object.entries(STATUS_META).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}</select></div>
-              <div className="filter-group"><label>Sort</label><select value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)}><option value="newest">Newest</option><option value="reward">Highest Reward</option><option value="score">Highest Score</option></select></div>
+              <div className="filter-group"><label>Sort</label><select value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)}><option value="newest">Newest</option><option value="score">Highest Score</option></select></div>
               <span className="results-count">{filtered.length} bount{filtered.length !== 1 ? 'ies' : 'y'}</span>
             </div>
             <div className="bounty-list">{paged.map(b => <BountyRow key={b.bounty_id} bounty={b} onClick={() => void viewBounty(b)} />)}</div>
@@ -710,7 +704,7 @@ export default function App() {
               setAdjPipeline({ active: false, stage: 0, bountyId: '', bountyTitle: '' })
               try { setSelected(await getBounty(bid)) } catch {}
             }}
-            onCancel={() => void withTx('Cancelling', h => cancelBounty(account!, selected.bounty_id, h), 'refunded', selected.bounty_id)}
+            onCancel={() => void withTx('Cancelling', h => cancelBounty(account!, selected.bounty_id, h), 'cancelled', selected.bounty_id)}
             onRefresh={async () => { setSelected(await getBounty(selected.bounty_id)); await refresh() }}
             onBack={() => nav('browse')}
           />
@@ -719,9 +713,9 @@ export default function App() {
         {/* ═══════════ CREATE ═══════════ */}
         {view === 'create' && (
           <CreateView account={account} prefilled={prefilled}
-            onSubmit={(id, title, brief, rubric, refUrl, gen) => {
+            onSubmit={(id, title, brief, rubric, refUrl) => {
               setPrefilled(null)
-              void withTx('Creating bounty', h => createBounty(account!, id, title, brief, rubric, refUrl, BigInt(Math.floor(parseFloat(gen) * 1e18)), h), 'created', id)
+              void withTx('Creating bounty', h => createBounty(account!, id, title, brief, rubric, refUrl, h), 'created', id)
             }}
           />
         )}
@@ -778,7 +772,6 @@ function BountyRow({ bounty, onClick }: { bounty: LearningBounty; onClick: () =>
         <div className="bounty-info"><strong>{truncate(bounty.title, 80)}</strong><span className="bounty-brief">{truncate(bounty.brief, 120)}</span></div>
       </div>
       <div className="bounty-row-right">
-        <span className="bounty-reward">{weiToGen(bounty.reward_wei)} GEN</span>
         <span className="status-pill" style={{ color: s?.color, background: s?.color + '18' }}>{s?.icon} {s?.label}</span>
         {bounty.quality_score > 0 && <span className="bounty-score" style={{ color: scoreColor(bounty.quality_score) }}>{bounty.quality_score}/100</span>}
         <span className="bounty-time">{timeAgo(bounty.created_at)}</span>
@@ -823,7 +816,6 @@ function BountyDetailView({ bounty, account, onSubmitAndAdjudicate, onAdjudicate
           <span className="bounty-time">{timeAgo(bounty.created_at)}</span>
         </div>
         <h1>{bounty.title}</h1>
-        <div className="detail-reward">{weiToGen(bounty.reward_wei)} GEN</div>
       </div>
 
       <div className="detail-cols">
@@ -848,7 +840,7 @@ function BountyDetailView({ bounty, account, onSubmitAndAdjudicate, onAdjudicate
           <div className="adj-scores">
             <div className="adj-score-item"><span className="adj-label">Quality</span><div className="adj-bar"><div className="adj-fill" style={{ width: `${bounty.quality_score}%`, background: scoreColor(bounty.quality_score) }} /></div><span className="adj-val" style={{ color: scoreColor(bounty.quality_score) }}>{bounty.quality_score}/100</span></div>
             <div className="adj-score-item"><span className="adj-label">Criteria</span><span className="adj-val">{bounty.criteria_met}/10</span></div>
-            <div className="adj-score-item"><span className="adj-label">Payout</span><span className="adj-val" style={{ color: bounty.quality_score >= 70 ? '#3fb950' : '#f85149' }}>{bounty.quality_score >= 70 ? 'PASS ≥70' : 'FAIL <70'}</span></div>
+            <div className="adj-score-item"><span className="adj-label">Result</span><span className="adj-val" style={{ color: bounty.quality_score >= 70 ? '#3fb950' : '#f85149' }}>{bounty.quality_score >= 70 ? 'ACCEPTED' : 'REJECTED'}</span></div>
           </div>
           {bounty.reasoning && <div className="adj-reasoning"><strong>Reasoning:</strong> {bounty.reasoning}</div>}
           {bounty.missing_evidence && <div className="adj-missing"><strong>Missing:</strong> {bounty.missing_evidence}</div>}
@@ -894,10 +886,10 @@ function BountyDetailView({ bounty, account, onSubmitAndAdjudicate, onAdjudicate
 
 function CreateView({ account, prefilled, onSubmit }: {
   account: string | null; prefilled: BountyFormData | null
-  onSubmit: (id: string, title: string, brief: string, rubric: string, refUrl: string, gen: string) => void
+  onSubmit: (id: string, title: string, brief: string, rubric: string, refUrl: string) => void
 }) {
   const [id, setId] = useState(''); const [title, setTitle] = useState(''); const [brief, setBrief] = useState('')
-  const [rubric, setRubric] = useState(''); const [refUrl, setRefUrl] = useState(''); const [gen, setGen] = useState('1')
+  const [rubric, setRubric] = useState(''); const [refUrl, setRefUrl] = useState('')
   const [aiMsg, setAiMsg] = useState(''); const [aiLoading, setAiLoading] = useState(false)
 
   useEffect(() => {
@@ -923,16 +915,15 @@ function CreateView({ account, prefilled, onSubmit }: {
     <div className="create-view">
       <div className="card">
         <h3>✨ Create a Learning Bounty</h3>
-        <p className="create-desc">Escrow GEN and describe what you need. GenLayer validators evaluate submissions using AI consensus.</p>
+        <p className="create-desc">Describe what you need. GenLayer validators evaluate submissions using AI consensus.</p>
         <div className="form">
           <div className="form-group"><label>Bounty ID (slug)</label><input type="text" value={id} onChange={e => setId(e.target.value)} placeholder="python-async-tutorial" /><small>Letters, numbers, hyphens, underscores</small></div>
           <div className="form-group"><label>Title</label><input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Write a Python async/await tutorial" /><div className="ai-buttons"><button className="btn ai" onClick={handleGenerate} disabled={aiLoading}>🤖 AI Generate Brief & Rubric</button></div></div>
           <div className="form-group"><label>Brief (30-2500 chars)</label><textarea value={brief} onChange={e => setBrief(e.target.value)} placeholder="Describe what you need…" rows={5} />{brief && <button className="btn ai small" onClick={handleImprove} disabled={aiLoading}>✨ AI Improve</button>}</div>
           <div className="form-group"><label>Scoring Rubric (30-2500 chars)</label><textarea value={rubric} onChange={e => setRubric(e.target.value)} placeholder="How should it be evaluated?" rows={5} /></div>
           <div className="form-group"><label>Reference URL</label><input type="url" value={refUrl} onChange={e => setRefUrl(e.target.value)} placeholder="https://example.com" /></div>
-          <div className="form-group"><label>Reward (GEN)</label><input type="number" step="0.01" min="0.01" value={gen} onChange={e => setGen(e.target.value)} /><small>Escrowed in contract</small></div>
           {aiMsg && <div className="ai-message">{aiMsg}</div>}
-          <button className="btn primary lg" onClick={() => onSubmit(id, title, brief, rubric, refUrl, gen)}>🔒 Escrow {gen} GEN & Create Bounty</button>
+          <button className="btn primary lg" onClick={() => onSubmit(id, title, brief, rubric, refUrl)}>Create Bounty</button>
         </div>
       </div>
     </div>

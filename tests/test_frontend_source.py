@@ -31,15 +31,12 @@ def test_frontend_has_honest_states_and_no_fake_rows():
     assert "localStorage" not in GENLAYER
 
 
-def test_frontend_sends_real_gen_value_and_exposes_settlement_evidence():
-    # The write helper must accept and forward a value parameter
-    assert "value: bigint = 0n" in GENLAYER or "value: bigint" in GENLAYER
-    # createBounty must pass the actual valueWei to the contract (not 0n)
-    assert "valueWei, onHash)" in GENLAYER
-    # The createBounty function signature must accept valueWei
-    assert "valueWei: bigint" in GENLAYER
-    # The app must convert user-entered GEN to wei and pass it
-    assert "BigInt(Math.floor(parseFloat(gen) * 1e18))" in APP
+def test_frontend_is_non_financial_no_gen_value():
+    """Non-financial demo — no GEN value is sent in transactions."""
+    assert "value:" not in GENLAYER or "value: bigint" not in GENLAYER
+    assert "valueWei" not in GENLAYER
+    assert "BigInt(Math.floor(parseFloat(gen) * 1e18))" not in APP
+    assert "reward_wei" not in GENLAYER
 
 
 def test_deployed_contract_and_pages_base_are_configured():

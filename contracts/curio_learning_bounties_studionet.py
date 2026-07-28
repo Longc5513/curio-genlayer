@@ -1,24 +1,18 @@
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
-"""Curio Learning Bounties — GenLayer Intelligent Contract.
+"""Curio — Non-financial StudioNet adjudication demo on GenLayer.
 
-A requester escrows GEN for a learning deliverable. A contributor submits a URL,
-and GenLayer validators independently evaluate the deliverable against the
-requester's rubric. Consensus decides whether to pay the contributor, refund the
-requester, or request more information.
+A requester creates a learning-bounty brief with a rubric. A contributor
+submits a public URL. GenLayer validators independently evaluate the
+deliverable against the rubric and reach consensus on accept / reject /
+more_info.  No tokens are escrowed, transferred, or refunded — this
+contract demonstrates GenLayer's qualitative adjudication pipeline
+(web evidence fetching, LLM evaluation, validator consensus) without
+any financial settlement.
 """
 
 import json
 from dataclasses import dataclass
 from genlayer import *
-
-
-@gl.evm.contract_interface
-class _Recipient:
-    class View:
-        pass
-
-    class Write:
-        pass
 
 
 @allow_storage
@@ -30,7 +24,6 @@ class LearningBounty:
     brief: str
     rubric: str
     reference_url: str
-    reward_wei: u256
     status: str
     contributor: Address
     submission_url: str
@@ -46,20 +39,12 @@ class LearningBounty:
 
 
 class CurioLearningBounties(gl.Contract):
-    """Escrow and consensus-backed adjudication for learning bounties."""
+    """Non-financial adjudication demo — AI-powered consensus on learning deliverables."""
 
     bounties: TreeMap[str, LearningBounty]
     bounty_ids: DynArray[str]
     requester_bounties: TreeMap[Address, DynArray[str]]
     contributor_bounties: TreeMap[Address, DynArray[str]]
-    total_escrowed_wei: u256
-    total_paid_wei: u256
-    total_refunded_wei: u256
-
-    def __init__(self):
-        self.total_escrowed_wei = u256(0)
-        self.total_paid_wei = u256(0)
-        self.total_refunded_wei = u256(0)
 
     @staticmethod
     def _require_text(value: str, label: str, min_length: int, max_length: int) -> str:
@@ -131,7 +116,6 @@ class CurioLearningBounties(gl.Contract):
             "brief": bounty.brief,
             "rubric": bounty.rubric,
             "reference_url": bounty.reference_url,
-            "reward_wei": int(bounty.reward_wei),
             "status": bounty.status,
             "contributor": bounty.contributor.as_hex,
             "submission_url": bounty.submission_url,
@@ -146,7 +130,7 @@ class CurioLearningBounties(gl.Contract):
             "review_round": int(bounty.review_round),
         }
 
-    @gl.public.write.payable
+    @gl.public.write
     def create_bounty(
         self,
         bounty_id: str,
@@ -160,9 +144,6 @@ class CurioLearningBounties(gl.Contract):
             raise gl.vm.UserError("bounty_id may only contain letters, numbers, '-' and '_'")
         if clean_id in self.bounties:
             raise gl.vm.UserError("Bounty already exists")
-        if gl.message.value == u256(0):
-            raise gl.vm.UserError("A positive GEN reward is required")
-        reward = gl.message.value
 
         clean_title = self._require_text(title, "title", 5, 100)
         clean_brief = self._require_text(brief, "brief", 30, 2500)
@@ -178,7 +159,6 @@ class CurioLearningBounties(gl.Contract):
             brief=clean_brief,
             rubric=clean_rubric,
             reference_url=clean_reference,
-            reward_wei=reward,
             status="open",
             contributor=Address("0x0000000000000000000000000000000000000000"),
             submission_url="",
@@ -194,7 +174,6 @@ class CurioLearningBounties(gl.Contract):
         )
         self.bounty_ids.append(clean_id)
         self.requester_bounties.get_or_insert_default(requester).append(clean_id)
-        self.total_escrowed_wei += reward
 
     @gl.public.write
     def submit_solution(self, bounty_id: str, submission_url: str, note: str) -> None:
@@ -365,7 +344,6 @@ Decision policy:
             brief=stored.brief,
             rubric=stored.rubric,
             reference_url=stored.reference_url,
-            reward_wei=stored.reward_wei,
             status=stored.status,
             contributor=stored.contributor,
             submission_url=stored.submission_url,
@@ -404,7 +382,7 @@ Decision policy:
                 ) > 1:
                     return False
 
-                # Prevent a tolerance window from crossing the payout boundary.
+                # Prevent a tolerance window from crossing the accept boundary.
                 leader_accept = int(leader_data["quality_score"]) >= 70
                 validator_accept = int(validator_result["quality_score"]) >= 70
                 if leader_accept != validator_accept:
@@ -415,7 +393,7 @@ Decision policy:
 
         result = gl.vm.run_nondet_unsafe(leader_fn, validator_fn)
 
-        # State and transfers change only after validators accept the result.
+        # State changes only after validators accept the result.
         bounty = self.bounties[clean_id]
         bounty.verdict = str(result["decision"])
         bounty.quality_score = u8(int(result["quality_score"]))
@@ -426,15 +404,9 @@ Decision policy:
         bounty.updated_at = gl.message_raw["datetime"]
 
         if bounty.verdict == "accept":
-            bounty.status = "paid"
-            self.total_escrowed_wei -= bounty.reward_wei
-            self.total_paid_wei += bounty.reward_wei
-            _Recipient(bounty.contributor).emit_transfer(value=bounty.reward_wei)
+            bounty.status = "accepted"
         elif bounty.verdict == "reject":
-            bounty.status = "refunded"
-            self.total_escrowed_wei -= bounty.reward_wei
-            self.total_refunded_wei += bounty.reward_wei
-            _Recipient(bounty.requester).emit_transfer(value=bounty.reward_wei)
+            bounty.status = "rejected"
         else:
             bounty.status = "more_info"
 
@@ -452,9 +424,6 @@ Decision policy:
         bounty.status = "cancelled"
         bounty.verdict = "cancelled"
         bounty.updated_at = gl.message_raw["datetime"]
-        self.total_escrowed_wei -= bounty.reward_wei
-        self.total_refunded_wei += bounty.reward_wei
-        _Recipient(bounty.requester).emit_transfer(value=bounty.reward_wei)
 
     @gl.public.view
     def get_bounty(self, bounty_id: str) -> dict:
@@ -485,13 +454,11 @@ Decision policy:
 
     @gl.public.view
     def get_contract_version(self) -> str:
-        return "curio-learning-bounties/1.1.0"
+        return "curio-learning-bounties/2.0.0-non-financial"
 
     @gl.public.view
     def get_stats(self) -> dict:
         return {
             "bounty_count": len(self.bounty_ids),
-            "total_escrowed_wei": int(self.total_escrowed_wei),
-            "total_paid_wei": int(self.total_paid_wei),
-            "total_refunded_wei": int(self.total_refunded_wei),
+            "note": "Non-financial adjudication demo — no token escrow or settlement",
         }

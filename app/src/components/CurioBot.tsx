@@ -6,7 +6,7 @@ interface ChatMsg { role: 'user' | 'assistant'; content: string; actions?: ChatA
 interface ChatAction { label: string; action: () => void; style?: string }
 type RobotMood = 'idle' | 'walking' | 'talking' | 'thinking' | 'waving' | 'excited'
 interface BountyFormData { id: string; title: string; brief: string; rubric: string; refUrl: string }
-interface BountyInfo { bounty_id: string; title: string; status: string; quality_score: number; criteria_met: number; verdict: string; reasoning: string; reward_wei: number; brief: string; rubric: string; submission_url: string }
+interface BountyInfo { bounty_id: string; title: string; status: string; quality_score: number; criteria_met: number; verdict: string; reasoning: string; brief: string; rubric: string; submission_url: string }
 
 interface RobotProps {
   onConnectWallet: () => Promise<void>

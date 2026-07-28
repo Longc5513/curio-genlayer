@@ -130,36 +130,36 @@ export async function listContributorBounties(contributor: string): Promise<Lear
 
 // ── Write Functions (match contract @gl.public.write) ───────────────
 
-async function write(account: Address, fn: string, args: unknown[], value: bigint = 0n, onHash?: (h: string) => void): Promise<string> {
+async function write(account: Address, fn: string, args: unknown[], onHash?: (h: string) => void): Promise<string> {
   const p = await getProvider()
   if (!p) throw new Error('Wallet not connected')
   await ensureWalletNetwork()
   const client = createClient({ chain: studionet, account, provider: p })
-  const hash = await client.writeContract({ address: CONTRACT_ADDRESS, functionName: fn, args: args as CalldataEncodable[], value }) as unknown as TransactionHash
+  const hash = await client.writeContract({ address: CONTRACT_ADDRESS, functionName: fn, args: args as CalldataEncodable[], value: 0n }) as unknown as TransactionHash
   onHash?.(hash)
   await readClient.waitForTransactionReceipt({ hash })
   return hash
 }
 
-// create_bounty is @gl.public.write.payable — must send GEN value
-export const createBounty = (acc: Address, id: string, title: string, brief: string, rubric: string, refUrl: string, valueWei: bigint, onHash?: (h: string) => void) =>
-  write(acc, 'create_bounty', [id, title, brief, rubric, refUrl], valueWei, onHash)
+// create_bounty is @gl.public.write — non-financial, no GEN transfer
+export const createBounty = (acc: Address, id: string, title: string, brief: string, rubric: string, refUrl: string, onHash?: (h: string) => void) =>
+  write(acc, 'create_bounty', [id, title, brief, rubric, refUrl], onHash)
 
 // submit_solution is @gl.public.write
 export const submitSolution = (acc: Address, bountyId: string, submissionUrl: string, note: string, onHash?: (h: string) => void) =>
-  write(acc, 'submit_solution', [bountyId, submissionUrl, note], 0n, onHash)
+  write(acc, 'submit_solution', [bountyId, submissionUrl, note], onHash)
 
 // adjudicate is @gl.public.write
 export const adjudicate = (acc: Address, bountyId: string, onHash?: (h: string) => void) =>
-  write(acc, 'adjudicate', [bountyId], 0n, onHash)
+  write(acc, 'adjudicate', [bountyId], onHash)
 
 // submit_and_adjudicate is @gl.public.write — submit + auto-adjudicate in one tx
 export const submitAndAdjudicate = (acc: Address, bountyId: string, submissionUrl: string, note: string, onHash?: (h: string) => void) =>
-  write(acc, 'submit_and_adjudicate', [bountyId, submissionUrl, note], 0n, onHash)
+  write(acc, 'submit_and_adjudicate', [bountyId, submissionUrl, note], onHash)
 
 // cancel_open_bounty is @gl.public.write
 export const cancelBounty = (acc: Address, bountyId: string, onHash?: (h: string) => void) =>
-  write(acc, 'cancel_open_bounty', [bountyId], 0n, onHash)
+  write(acc, 'cancel_open_bounty', [bountyId], onHash)
 
 // ── Utils ───────────────────────────────────────────────────────────
 

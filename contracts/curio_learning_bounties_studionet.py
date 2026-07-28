@@ -160,8 +160,9 @@ class CurioLearningBounties(gl.Contract):
             raise gl.vm.UserError("bounty_id may only contain letters, numbers, '-' and '_'")
         if clean_id in self.bounties:
             raise gl.vm.UserError("Bounty already exists")
-        # On studionet, token transfers are not supported, so we allow zero-value bounties
-        reward = gl.message.value if gl.message.value > u256(0) else u256(1000000000000000000)  # 1 GEN default for testing
+        if gl.message.value == u256(0):
+            raise gl.vm.UserError("A positive GEN reward is required")
+        reward = gl.message.value
 
         clean_title = self._require_text(title, "title", 5, 100)
         clean_brief = self._require_text(brief, "brief", 30, 2500)
@@ -428,12 +429,12 @@ Decision policy:
             bounty.status = "paid"
             self.total_escrowed_wei -= bounty.reward_wei
             self.total_paid_wei += bounty.reward_wei
-            # On studionet, token transfers are not supported — skip emit_transfer
+            _Recipient(bounty.contributor).emit_transfer(value=bounty.reward_wei)
         elif bounty.verdict == "reject":
             bounty.status = "refunded"
             self.total_escrowed_wei -= bounty.reward_wei
             self.total_refunded_wei += bounty.reward_wei
-            # On studionet, token transfers are not supported — skip emit_transfer
+            _Recipient(bounty.requester).emit_transfer(value=bounty.reward_wei)
         else:
             bounty.status = "more_info"
 
@@ -453,7 +454,7 @@ Decision policy:
         bounty.updated_at = gl.message_raw["datetime"]
         self.total_escrowed_wei -= bounty.reward_wei
         self.total_refunded_wei += bounty.reward_wei
-        # On studionet, token transfers are not supported — skip emit_transfer
+        _Recipient(bounty.requester).emit_transfer(value=bounty.reward_wei)
 
     @gl.public.view
     def get_bounty(self, bounty_id: str) -> dict:

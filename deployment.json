@@ -12,6 +12,6 @@
     "AI-powered adjudication via GenLayer consensus (run_nondet_unsafe)",
     "Bounty cancellation with refund",
     "Requester and contributor tracking",
-    "Studionet-compatible (no token transfers)"
+    "Real GEN settlement via emit_transfer on adjudication and cancellation"
   ]
 }
